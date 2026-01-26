@@ -1,18 +1,18 @@
 const { sequelize, DataTypes, Model } = require('../../config/database');
 
-class Contry extends Model {}
+class Country extends Model {}
 
-Contry.init({
+Country.init({
     id: {
         type: DataTypes.UUID,
         defaultValue: DataTypes.UUIDV4,
         primaryKey: true
     },
-    contryName: {
+    countryName: {
         type: DataTypes.STRING(100),
         allowNull: false
     },
-    contryCode: {
+    countryCode: {
         type: DataTypes.STRING(10),
         allowNull: false
     }
@@ -22,4 +22,4 @@ Contry.init({
     underscored: true
 });
 
-module.exports = { Contry };
+module.exports = { Country };

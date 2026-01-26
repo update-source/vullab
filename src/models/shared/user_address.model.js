@@ -8,7 +8,7 @@ UserAddress.init({
         defaultValue: DataTypes.UUIDV4,
         primaryKey: true
     },
-    userID: {
+    userId: {
         type: DataTypes.UUID,
         allowNull: false,
         references: {
@@ -18,7 +18,19 @@ UserAddress.init({
         onUpdate: 'CASCADE',
         onDelete: 'CASCADE'
     },
-    address_type: {
+    addressId: {
+        type: DataTypes.UUID,
+        allowNull: false,
+        references: {
+            model: 'address',
+            key: 'id'
+        }
+    },
+    isDefault: {
+        type: DataTypes.BOOLEAN,
+        defaultValue: false
+    },
+    addressType: {
         type: DataTypes.ENUM('shipping', 'billing', 'both'),
         allowNull: false,
         defaultValue: 'both'
@@ -27,8 +39,7 @@ UserAddress.init({
     sequelize,
     tableName: 'user_address',
     underscored: true,
-    timestamps: true,
-    updatedAt: 'updated_at'
+    timestamps: true
 });
 
 module.exports = { UserAddress };
