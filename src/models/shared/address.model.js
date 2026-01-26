@@ -10,23 +10,23 @@ Address.init({
     },
     streetAddress: {
         type: DataTypes.STRING(255),
-        notNull: false
+        allowNull: false
     },
     streetAddress2: {
         type: DataTypes.STRING(255),
     },
     city: {
         type: DataTypes.STRING(100),
-        notNull: false
+        allowNull: false
     },
     stateProvince: {
         type: DataTypes.STRING(100),
     },
     postalCode: {
         type: DataTypes.STRING(20),
-        notNull: false
+        allowNull: false
     },
-    contryId: {
+    countryId: {
         type: DataTypes.UUID,
         allowNull: false,
         references: {

@@ -18,11 +18,11 @@ UserToken.init({
     },
     tokenType: {
         type: DataTypes.ENUM('password_reset', 'email_verification', 'api_token', 'session_token'),
-        notNull: false
+        allowNull: false
     },
     tokenValue: {
         type: DataTypes.STRING(255),
-        notNull: false
+        allowNull: false
     },
     expiresAt: {
         type: DataTypes.DATE
@@ -46,3 +46,5 @@ UserToken.init({
     underscored: true,
     timestamps: true
 });
+
+module.exports = { UserToken };

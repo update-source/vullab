@@ -36,3 +36,5 @@ UserSecurityLog.init({
     underscored: true,
     timestamps: true
 });
+
+module.exports = { UserSecurityLog };
