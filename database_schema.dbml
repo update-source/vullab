@@ -1,0 +1,456 @@
+// VulLab E-Commerce Database Schema
+// Paste this into https://dbdiagram.io to visualize
+// Or use any ERD tool that supports DBML format
+
+// ===========================
+// USER MODULE
+// ===========================
+
+Table user {
+  id integer [pk, increment]
+  username varchar(50) [unique, not null]
+  email varchar(100) [unique, not null]
+  password varchar(255) [not null]
+  role varchar(20) [default: 'user', not null, note: 'user, admin']
+  is_active boolean [default: true]
+  is_email_verified boolean [default: false]
+  last_login_at timestamp
+  created_at timestamp [default: `CURRENT_TIMESTAMP`]
+  updated_at timestamp [default: `CURRENT_TIMESTAMP`]
+  
+  Indexes {
+    email [unique]
+    username [unique]
+    role
+  }
+  
+  Note: 'Core user identity - clean 10 fields only'
+}
+
+Table user_token {
+  id integer [pk, increment]
+  user_id integer [not null, ref: > user.id]
+  token_type varchar(50) [not null, note: 'password_reset, email_verification, api_token, session_token']
+  token_value varchar(255) [not null]
+  expires_at timestamp
+  is_used boolean [default: false]
+  used_at timestamp
+  ip_address varchar(45)
+  user_agent text
+  created_at timestamp [default: `CURRENT_TIMESTAMP`]
+  
+  Indexes {
+    token_value
+    (user_id, token_type)
+    expires_at
+  }
+  
+  Note: 'Centralized token management - extensible design'
+}
+
+Table user_profile {
+  id integer [pk, increment]
+  user_id integer [unique, not null, ref: - user.id]
+  first_name varchar(50)
+  last_name varchar(50)
+  phone_number varchar(20)
+  date_of_birth date
+  avatar_url varchar(255)
+  bio text
+  created_at timestamp [default: `CURRENT_TIMESTAMP`]
+  updated_at timestamp [default: `CURRENT_TIMESTAMP`]
+  
+  Note: '1-to-1 with user'
+}
+
+Table user_security_log {
+  id integer [pk, increment]
+  user_id integer [ref: > user.id]
+  event_type varchar(50) [not null, note: 'login_success, login_failed, password_changed']
+  ip_address varchar(45)
+  user_agent text
+  metadata json
+  created_at timestamp [default: `CURRENT_TIMESTAMP`]
+  
+  Indexes {
+    (user_id, event_type)
+    created_at
+  }
+  
+  Note: 'Optional - Audit trail & bruteforce protection'
+}
+
+Table user_setting {
+  id integer [pk, increment]
+  user_id integer [unique, not null, ref: - user.id]
+  enable_2fa boolean [default: false]
+  login_notifications boolean [default: true]
+  profile_visibility varchar(20) [default: 'public', note: 'public, private']
+  preferences json
+  created_at timestamp [default: `CURRENT_TIMESTAMP`]
+  updated_at timestamp [default: `CURRENT_TIMESTAMP`]
+  
+  Note: 'Optional - User preferences'
+}
+
+// ===========================
+// ADDRESS MODULE
+// ===========================
+
+Table country {
+  id integer [pk, increment]
+  country_name varchar(100) [unique, not null]
+  country_code varchar(3) [unique, not null]
+  
+  Note: 'Reference table'
+}
+
+Table address {
+  id integer [pk, increment]
+  street_address varchar(255) [not null]
+  street_address_2 varchar(255)
+  city varchar(100) [not null]
+  state_province varchar(100)
+  postal_code varchar(20) [not null]
+  country_id integer [not null, ref: > country.id]
+  created_at timestamp [default: `CURRENT_TIMESTAMP`]
+  updated_at timestamp [default: `CURRENT_TIMESTAMP`]
+}
+
+Table user_address {
+  id integer [pk, increment]
+  user_id integer [not null, ref: > user.id]
+  address_id integer [not null, ref: > address.id]
+  is_default boolean [default: false]
+  address_type varchar(20) [default: 'both', note: 'shipping, billing, both']
+  created_at timestamp [default: `CURRENT_TIMESTAMP`]
+  
+  Indexes {
+    (user_id, address_id) [unique]
+  }
+  
+  Note: 'Junction table - Many-to-Many'
+}
+
+// ===========================
+// PRODUCT MODULE
+// ===========================
+
+Table category {
+  id integer [pk, increment]
+  parent_category_id integer [ref: > category.id]
+  category_name varchar(100) [not null]
+  slug varchar(100) [unique, not null]
+  description text
+  is_active boolean [default: true]
+  display_order integer [default: 0]
+  created_at timestamp [default: `CURRENT_TIMESTAMP`]
+  updated_at timestamp [default: `CURRENT_TIMESTAMP`]
+  
+  Note: 'Self-referencing for nested categories'
+}
+
+Table product {
+  id integer [pk, increment]
+  category_id integer [not null, ref: > category.id]
+  name varchar(255) [not null]
+  description text
+  product_image varchar(255)
+  sku varchar(50) [unique]
+  is_published boolean [default: true, note: 'IMPORTANT for IDOR labs']
+  created_at timestamp [default: `CURRENT_TIMESTAMP`]
+  updated_at timestamp [default: `CURRENT_TIMESTAMP`]
+  
+  Indexes {
+    category_id
+    is_published
+    sku [unique]
+  }
+}
+
+Table product_item {
+  id integer [pk, increment]
+  product_id integer [not null, ref: > product.id]
+  sku varchar(50) [unique, not null]
+  price decimal(10,2) [not null]
+  original_price decimal(10,2)
+  quantity_in_stock integer [default: 0, not null]
+  product_image varchar(255)
+  is_active boolean [default: true]
+  created_at timestamp [default: `CURRENT_TIMESTAMP`]
+  updated_at timestamp [default: `CURRENT_TIMESTAMP`]
+  
+  Indexes {
+    product_id
+    is_active
+  }
+}
+
+Table user_review {
+  id integer [pk, increment]
+  user_id integer [not null, ref: > user.id]
+  product_id integer [not null, ref: > product.id]
+  order_id integer [ref: > shop_order.id]
+  rating integer [not null, note: '1-5']
+  title varchar(200)
+  comment text [note: 'CRITICAL for XSS labs']
+  is_verified_purchase boolean [default: false]
+  is_approved boolean [default: true]
+  helpful_count integer [default: 0]
+  created_at timestamp [default: `CURRENT_TIMESTAMP`]
+  updated_at timestamp [default: `CURRENT_TIMESTAMP`]
+  
+  Indexes {
+    product_id
+    user_id
+  }
+  
+  Note: 'XSS lab target - comment field'
+}
+
+// ===========================
+// CART MODULE
+// ===========================
+
+Table shopping_cart {
+  id integer [pk, increment]
+  user_id integer [unique, not null, ref: - user.id]
+  expires_at timestamp
+  created_at timestamp [default: `CURRENT_TIMESTAMP`]
+  updated_at timestamp [default: `CURRENT_TIMESTAMP`]
+  
+  Note: '1-to-1 with user'
+}
+
+Table shopping_cart_item {
+  id integer [pk, increment]
+  cart_id integer [not null, ref: > shopping_cart.id]
+  product_item_id integer [not null, ref: > product_item.id]
+  quantity integer [default: 1, not null]
+  created_at timestamp [default: `CURRENT_TIMESTAMP`]
+  updated_at timestamp [default: `CURRENT_TIMESTAMP`]
+  
+  Indexes {
+    (cart_id, product_item_id) [unique]
+  }
+}
+
+// ===========================
+// ORDER MODULE
+// ===========================
+
+Table order_status {
+  id integer [pk, increment]
+  code varchar(50) [unique, not null]
+  display_name varchar(100) [not null]
+  description text
+  color varchar(7)
+  display_order integer [default: 0]
+  
+  Note: 'Reference table: pending, processing, shipped, delivered, cancelled'
+}
+
+Table shipping_method {
+  id integer [pk, increment]
+  code varchar(50) [unique, not null]
+  name varchar(100) [not null]
+  description text
+  price decimal(10,2) [not null]
+  estimated_days_min integer [not null]
+  estimated_days_max integer [not null]
+  is_active boolean [default: true]
+  created_at timestamp [default: `CURRENT_TIMESTAMP`]
+  
+  Note: 'Reference table'
+}
+
+Table payment_method {
+  id integer [pk, increment]
+  code varchar(50) [unique, not null]
+  method_name varchar(100) [not null]
+  description text
+  is_active boolean [default: true]
+  processing_fee_percentage decimal(5,2) [default: 0.00]
+  
+  Note: 'Reference table: credit_card, paypal, cod'
+}
+
+Table shop_order {
+  id integer [pk, increment]
+  user_id integer [not null, ref: > user.id]
+  order_number varchar(50) [unique, not null]
+  
+  // Pricing breakdown - CRITICAL for logic flaw labs
+  subtotal decimal(10,2) [not null]
+  shipping_cost decimal(10,2) [default: 0.00]
+  tax_amount decimal(10,2) [default: 0.00]
+  discount_amount decimal(10,2) [default: 0.00]
+  final_total decimal(10,2) [not null, note: 'IMPORTANT for price manipulation labs']
+  
+  // Foreign keys
+  shipping_address_id integer [not null, ref: > address.id]
+  shipping_method_id integer [not null, ref: > shipping_method.id]
+  payment_method_id integer [not null, ref: > payment_method.id]
+  order_status_id integer [not null, ref: > order_status.id]
+  
+  tracking_number varchar(100)
+  notes text
+  
+  created_at timestamp [default: `CURRENT_TIMESTAMP`]
+  updated_at timestamp [default: `CURRENT_TIMESTAMP`]
+  paid_at timestamp
+  shipped_at timestamp
+  delivered_at timestamp
+  
+  Indexes {
+    user_id
+    order_status_id
+    order_number [unique]
+  }
+  
+  Note: 'Core order table - pricing breakdown for labs'
+}
+
+Table order_line {
+  id integer [pk, increment]
+  order_id integer [not null, ref: > shop_order.id]
+  product_item_id integer [not null, ref: > product_item.id]
+  quantity integer [not null]
+  unit_price decimal(10,2) [not null]
+  total_price decimal(10,2) [not null]
+  
+  // Snapshot fields
+  product_name varchar(255) [not null]
+  product_sku varchar(50) [not null]
+  
+  created_at timestamp [default: `CURRENT_TIMESTAMP`]
+  
+  Indexes {
+    order_id
+  }
+  
+  Note: 'Order items with product snapshot'
+}
+
+// ===========================
+// PROMOTION MODULE
+// ===========================
+
+Table promotion {
+  id integer [pk, increment]
+  code varchar(50) [unique, not null, note: 'CRITICAL for coupon bypass labs']
+  name varchar(100) [not null]
+  description text
+  discount_type varchar(20) [default: 'percentage', note: 'percentage, fixed_amount']
+  discount_value decimal(10,2) [not null]
+  minimum_order_amount decimal(10,2)
+  max_discount_amount decimal(10,2)
+  usage_limit integer
+  usage_count integer [default: 0]
+  is_active boolean [default: true]
+  start_date timestamp [not null]
+  end_date timestamp [not null]
+  created_at timestamp [default: `CURRENT_TIMESTAMP`]
+  updated_at timestamp [default: `CURRENT_TIMESTAMP`]
+  
+  Indexes {
+    code [unique]
+    is_active
+  }
+  
+  Note: 'Logic flaw labs - coupon manipulation'
+}
+
+Table promotion_category {
+  promotion_id integer [pk, ref: > promotion.id]
+  category_id integer [pk, ref: > category.id]
+  
+  Note: 'Junction table - Many-to-Many'
+}
+
+// ===========================
+// OPTIONAL: PRODUCT VARIATIONS
+// ===========================
+
+Table variation {
+  id integer [pk, increment]
+  category_id integer [not null, ref: > category.id]
+  name varchar(100) [not null, note: 'Color, Size, Material']
+  created_at timestamp [default: `CURRENT_TIMESTAMP`]
+  
+  Note: 'Optional - Product variation types'
+}
+
+Table variation_option {
+  id integer [pk, increment]
+  variation_id integer [not null, ref: > variation.id]
+  value varchar(100) [not null, note: 'Red, Blue, XL, Cotton']
+  created_at timestamp [default: `CURRENT_TIMESTAMP`]
+  
+  Note: 'Optional - Variation values'
+}
+
+Table product_configuration {
+  product_item_id integer [pk, ref: > product_item.id]
+  variation_option_id integer [pk, ref: > variation_option.id]
+  
+  Note: 'Optional - Junction table for product variations'
+}
+
+// ===========================
+// TABLE GROUPS FOR ORGANIZATION
+// ===========================
+
+TableGroup user_module {
+  user
+  user_token
+  user_profile
+  user_security_log
+  user_setting
+  
+  Note: 'User Management & Authentication'
+}
+
+TableGroup address_module {
+  country
+  address
+  user_address
+  
+  Note: 'Address & Location'
+}
+
+TableGroup product_module {
+  category
+  product
+  product_item
+  user_review
+  variation
+  variation_option
+  product_configuration
+  
+  Note: 'Product Catalog'
+}
+
+TableGroup cart_module {
+  shopping_cart
+  shopping_cart_item
+  
+  Note: 'Shopping Cart'
+}
+
+TableGroup order_module {
+  order_status
+  shipping_method
+  payment_method
+  shop_order
+  order_line
+  
+  Note: 'Order Management'
+}
+
+TableGroup promotion_module {
+  promotion
+  promotion_category
+  
+  Note: 'Promotions & Discounts'
+}

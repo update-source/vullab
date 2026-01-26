@@ -1,0 +1,48 @@
+const { sequelize, DataTypes, Models } = require('../../config/database');
+
+class UserToken extends Models {}
+
+UserToken.init({
+    id: {
+        type: DataTypes.UUID,
+        defaultValue: DataTypes.UUIDV4,
+        primaryKey: true
+    },
+    userId: {
+        type: DataTypes.UUID,
+        allowNull: false,
+        references: {
+            model: 'user',
+            key: 'id'
+        }
+    },
+    tokenType: {
+        type: DataTypes.ENUM('password_reset', 'email_verification', 'api_token', 'session_token'),
+        notNull: false
+    },
+    tokenValue: {
+        type: DataTypes.STRING(255),
+        notNull: false
+    },
+    expiresAt: {
+        type: DataTypes.DATE
+    },
+    isUsed: {
+        type: DataTypes.BOOLEAN,
+        defaultValue: false
+    },
+    usedAt: {
+        type: DataTypes.DATE
+    },
+    ipAddress: {
+        type: DataTypes.STRING(45)
+    },
+    userAgent: {
+        type: DataTypes.TEXT
+    }
+}, {
+    sequelize,
+    tableName: 'user_token',
+    underscored: true,
+    timestamps: true
+});
