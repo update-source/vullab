@@ -1,59 +1,43 @@
 const { authService } = require('../../services/v2');
-const { validationResult } = require('express-validator');
-const { loginEnumTiming } = require('../v1/auth.controller');
+const { successResponse } = require('../../utils/response');
 
 const authController = {
-    async register(req, res) {
+
+    async register(req, res, next) {
         try {
-
-            const errors = validationResult(req);
-            if (!errors.isEmpty()) {
-                return res.status(400).json({ errors: errors.array() });
-            }
-
             const result = await authService.register(req.body);
-
-            return res.status(201).json({
-                message: 'User registered successfully',
-                data: result
-            });
-
+            return successResponse(res, result, 'User registered successfully', 201);
         } catch (error) {
-            if (error.message === "User already existed") {
-                return res.status(409).json({ message: error.message });
-            }
-            console.error(error);
-            return res.status(500).json({ message: 'Internal Server Error' });
+            next(error);
         }
     },
 
-    async loginEnumDifferentFix(req, res) {
+    async loginEnumDifferentFix(req, res, next) {
         try {
             const result = await authService.loginSecure(req.body);
-            return res.status(200).json({ message: "Login success", data: result })
+            return successResponse(res, result, 'Login successful');
         } catch (error) {
-            return res.status(401).json({ message: error.message });
+            next(error);
         }
     },
 
-    async loginEnumSubtleFix(req, res) {
+    async loginEnumSubtleFix(req, res, next) {
         try {
             const result = await authService.loginSecure(req.body);
-            return res.status(200).json({ message: "Login success", data: result })
+            return successResponse(res, result, 'Login successful');
         } catch (error) {
-            return res.status(401).json({ message: error.message });
+            next(error);
         }
     },
 
-    async loginEnumTimingFix(req, res) {
+    async loginEnumTimingFix(req, res, next) {
         try {
             const result = await authService.loginSecure(req.body);
-            return res.status(200).json({ message: "Login success", data: result })
+            return successResponse(res, result, 'Login successful');
         } catch (error) {
-            return res.status(401).json({ message: error.message });
+            next(error);
         }
     },
-
 
 };
 

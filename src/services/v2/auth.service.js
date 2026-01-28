@@ -1,45 +1,35 @@
 const { User } = require('../../models');
 const bcrypt = require('bcryptjs');
+const AppError = require('../../utils/AppError');
 
-/**
- * Service xử lý logic liên quan đến Auth (V2 - Secure)
- */
 const authService = {
 
     async register(data) {
+        const { username, email, password } = data;
 
-        try {
-            const { username, email, password } = data
-
-            const existingUser = await User.findOne({ where: { username } })
-            if (existingUser) {
-                throw new Error("User already existed")
-            }
-
-            const saltRounds = 10
-            const salt = await bcrypt.genSalt(saltRounds)
-            const hashedPassword = await bcrypt.hash(password, salt)
-
-            const newUser = await User.create({
-                username,
-                email,
-                password: hashedPassword
-            })
-
-            const userRespone = newUser.toJSON()
-            delete userRespone.password
-
-            return userRespone
-        } catch (error) {
-            throw error;
+        const existingUser = await User.findOne({ where: { username } });
+        if (existingUser) {
+            throw new AppError(409, 'User already existed');
         }
+
+        const saltRounds = 10;
+        const salt = await bcrypt.genSalt(saltRounds);
+        const hashedPassword = await bcrypt.hash(password, salt);
+
+        const newUser = await User.create({
+            username,
+            email,
+            password: hashedPassword
+        });
+
+        const userResponse = newUser.toJSON();
+        delete userResponse.password;
+
+        return userResponse;
     },
 
     async loginSecure(data) {
         const { username, password } = data;
-
-        if (!username || !password) throw new Error("Please provide required fields!");
-
         const existedUser = await User.findOne({ where: { username: username } });
 
         const dummyHash = '$2a$10$abcdefghijklmnopqrstuvwxyzABC';
@@ -48,7 +38,7 @@ const authService = {
         const isMatch = await bcrypt.compare(password, targetHash);
 
         if (!existedUser || !isMatch) {
-            throw new Error("Invalid username or password");
+            throw new AppError(401, 'Invalid username or password');
         }
 
         return {
@@ -59,7 +49,6 @@ const authService = {
         };
     }
 
+};
 
-}
-
-module.exports = authService
+module.exports = authService;

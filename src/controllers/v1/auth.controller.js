@@ -1,33 +1,33 @@
 // V1 Controller - Will contain vulnerabilities
 const { authService } = require('../../services/v1');
-const { loginEnumTiming } = require('../../services/v1/auth.service');
+const { successResponse } = require('../../utils/response');
 
 const authController = {
 
-    async loginEnumDifferent(req, res) {
+    async loginEnumDifferent(req, res, next) {
         try {
             const result = await authService.loginEnumDifferent(req.body);
-            return res.status(200).json({ message: "Login success", data: result })
+            return successResponse(res, result, 'Login successful');
         } catch (error) {
-            return res.status(401).json({ message: error.message });
+            next(error);
         }
     },
 
-    async loginEnumSubtle(req, res) {
+    async loginEnumSubtle(req, res, next) {
         try {
             const result = await authService.loginEnumSubtle(req.body);
-            return res.status(200).json({ message: "Login success", data: result })
+            return successResponse(res, result, 'Login successful');
         } catch (error) {
-            return res.status(401).json({ message: error.message });
+            next(error);
         }
     },
-    
-    async loginEnumTiming(req, res) {
+
+    async loginEnumTiming(req, res, next) {
         try {
             const result = await authService.loginEnumTiming(req.body);
-            return res.status(200).json({ message: "Login success", data: result })
+            return successResponse(res, result, 'Login successful');
         } catch (error) {
-            return res.status(401).json({ message: error.message });
+            next(error);
         }
     },
 };

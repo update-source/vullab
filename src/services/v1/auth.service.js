@@ -1,26 +1,24 @@
 // V1 Service - Will contain vulnerable logic
 const { User } = require('../../models');
 const bcrypt = require('bcryptjs');
+const AppError = require('../../utils/AppError');
 
 const authService = {
 
     async loginEnumDifferent(data) {
         const { username, password } = data;
-
-        if (!username || !password) throw new Error("Please provide required fields!");
-
         const existedUser = await User.findOne({ where: { username: username } });
 
         const dummyHash = '$2a$10$abcdefghijklmnopqrstuvwxyzABC';
         const targetHash = existedUser ? existedUser.password : dummyHash;
-            
+
         const isMatch = await bcrypt.compare(password, targetHash);
         if (!existedUser) {
-            throw new Error("Invalid username");
+            throw new AppError(401, "Invalid username");
         }
 
         if (!isMatch) {
-            throw new Error("Invalid password");
+            throw new AppError(401, "Invalid password");
         }
 
         return {
@@ -33,22 +31,19 @@ const authService = {
 
     async loginEnumSubtle(data) {
         const { username, password } = data;
-
-        if (!username || !password) throw new Error("Please provide required fields!");
-
         const existedUser = await User.findOne({ where: { username: username } });
 
         const dummyHash = '$2a$10$abcdefghijklmnopqrstuvwxyzABC';
         const targetHash = existedUser ? existedUser.password : dummyHash;
-            
+
         const isMatch = await bcrypt.compare(password, targetHash);
         if (!existedUser) {
-            throw new Error("Invalid username or password");
+            throw new AppError(401, "Invalid username or password");
         }
 
         if (!isMatch) {
-            throw new Error("Invalid username or password."); // Adding a dot 
-        } 
+            throw new AppError(401, "Invalid username or password."); // Adding a dot 
+        }
 
         return {
             id: existedUser.id,
@@ -60,16 +55,13 @@ const authService = {
 
     async loginEnumTiming(data) {
         const { username, password } = data;
-
-        if (!username, !password) throw new Error("Please provide required fields!");
-
         const existedUser = await User.findOne({ where: { username: username } });
 
         if (!existedUser) {
-            throw new Error("Invalid username or password");
+            throw new AppError(401, "Invalid username or password");
         }
         if (!await bcrypt.compare(password, existedUser.password)) {
-            throw new Error("Invalid username or password");
+            throw new AppError(401, "Invalid username or password");
         }
 
         return {

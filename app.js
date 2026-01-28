@@ -15,6 +15,8 @@ app.use(express.urlencoded({ extended: true }));
 const routes = require('./src/routes');
 app.use('/api', routes); // Prefix cho tất cả API là /api
 
+const { errorHandler } = require('./src/middlewares');
+
 app.get('/', (req, res) => {
     res.render('index', {
         title: 'Trang Chủ',
@@ -27,6 +29,9 @@ app.get('/', (req, res) => {
 //     await sequelize.sync({ force: true });
 //     console.log('All models were synchronized successfully.');
 // })();
+
+// Global Error Handler must be the last middleware
+app.use(errorHandler);
 
 app.listen(port, () => {
     console.log(`Server đang chạy tại http://localhost:${port}`);
