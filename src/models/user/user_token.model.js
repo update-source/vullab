@@ -1,6 +1,6 @@
-const { sequelize, DataTypes, Models } = require('../../config/database');
+const { sequelize, DataTypes, Model } = require('../../config/database');
 
-class UserToken extends Models {}
+class UserToken extends Model {}
 
 UserToken.init({
     id: {

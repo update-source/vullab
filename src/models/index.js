@@ -20,7 +20,7 @@ const { PaymentMethod } = require('./order/payment-method.model');
 const { ShopOrder } = require('./order/shop-order.model');
 const { OrderLine } = require('./order/order-line.model');
 const { Promotion } = require('./marketing/promotion.model');
-const { PromotionCategory } = require('./marketing/promotion-category.model');.
+const { PromotionCategory } = require('./marketing/promotion-category.model');
 
 User.hasOne(UserProfile, { foreignKey: 'userId', as: 'profile' });
 UserProfile.belongsTo(User, { foreignKey: 'userId', as: 'user' });
@@ -36,8 +36,10 @@ UserSetting.belongsTo(User, { foreignKey: 'userId', as: 'user' });
 
 User.belongsToMany(Address, { through: UserAddress, foreignKey: 'userId', otherKey: 'addressId', as: 'addresses' });
 Address.belongsToMany(User, { through: UserAddress, foreignKey: 'addressId', otherKey: 'userId', as: 'users' });
+
 User.hasMany(UserAddress, { foreignKey: 'userId', as: 'userAddresses' });
 UserAddress.belongsTo(User, { foreignKey: 'userId', as: 'user' });
+
 Address.hasMany(UserAddress, { foreignKey: 'addressId', as: 'addressUsers' });
 UserAddress.belongsTo(Address, { foreignKey: 'addressId', as: 'address' });
 

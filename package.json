@@ -6,7 +6,10 @@
   "scripts": {
     "start": "node src/app.js",
     "dev": "nodemon src/app.js",
-    "build:css": "node ./build-css.js"
+    "build:css": "node ./build-css.js",
+    "db:sync": "node scripts/sync-database.js --force",
+    "db:sync:safe": "node scripts/sync-database.js --alter",
+    "db:sync:create": "node scripts/sync-database.js"
   },
   "keywords": [],
   "author": "Don",
@@ -14,6 +17,7 @@
   "type": "commonjs",
   "dependencies": {
     "bcrypt": "^6.0.0",
+    "bcryptjs": "^3.0.3",
     "cors": "^2.8.5",
     "dotenv": "^17.2.3",
     "express": "^5.2.1",

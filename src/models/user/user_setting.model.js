@@ -2,7 +2,6 @@ const { sequelize, DataTypes, Model } = require('../../config/database');
 
 class UserSetting extends Model {}
 
-
 UserSetting.init({
     id: {
         type: DataTypes.UUID,
