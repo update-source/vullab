@@ -9,7 +9,7 @@ const { body } = require('express-validator');
     Prevent XSS attacks - Use escape() for user-generated content displayed in HTML
     Use matchedData() when convenient - Get a clean object with just the validated fields
 */
-const validateRegister = [
+const registerRules = [
     body('username')
         .trim()
         .notEmpty().withMessage('Username is required')
@@ -21,14 +21,14 @@ const validateRegister = [
         .notEmpty().withMessage('Email is required')
         .isEmail().withMessage('Invalid email address')
         .normalizeEmail(),
-
+    
     body('password')
         .isLength({ min: 8 }).withMessage('Password must be at least 8 characters')
         .matches(/[A-Z]/).withMessage("Password must contain at least one uppercase letter")
         .matches(/[0-9]/).withMessage("Password must contain at least one number")
 ];
 
-const validateLogin = [
+const loginRules = [
     body('username')
         .trim()
         .notEmpty().withMessage('Username is required')
@@ -41,6 +41,6 @@ const validateLogin = [
 ];
 
 module.exports = {
-    validateRegister,
-    validateLogin
+    registerRules,
+    loginRules
 };

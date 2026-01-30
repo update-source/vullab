@@ -1,10 +1,10 @@
-const { validateRegister, validateLogin } = require('./auth-validation.middleware');
+const { registerRules, loginRules } = require('./auth-validation.middleware');
 const errorHandler = require('./error.middleware');
-const validate = require('./validation.middleware');
+const handleValidation = require('./validation.middleware');
 
 module.exports = {
-    validateRegister,
-    validateLogin,
+    registerRules,
+    loginRules,
     errorHandler,
-    validate
+    handleValidation
 };
