@@ -3,13 +3,8 @@ const router = express.Router();
 const authRouteV1 = require('./v1/auth.route');
 const authRouteV2 = require('./v2/auth.route');
 
-// Default Auth Route (points to V2 - secure version)
 router.use('/auth', authRouteV2);
-
-// API V1 (Vulnerable)
 router.use('/v1/auth', authRouteV1);
-
-// API V2 (Secure)
 router.use('/v2/auth', authRouteV2);
 
 module.exports = router;

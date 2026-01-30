@@ -1,4 +1,3 @@
-// V1 Controller - Will contain vulnerabilities
 const { authService } = require('../../services/v1');
 const { successResponse } = require('../../utils/response');
 

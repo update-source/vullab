@@ -22,13 +22,17 @@ const authService = {
             password: hashedPassword
         });
 
-        const userResponse = newUser.toJSON();
-        delete userResponse.password;
-
-        return userResponse;
+        return {
+            id: newUser.id,
+            username: newUser.username,
+            email: newUser.email,
+        };
     },
 
-    async loginSecure(data) {
+    async loginSecure(data) { 
+        /*https://github.com/spring-projects/spring-security/blob/c5632ccd838fcb2753a978918561081cff037510/core/src/main/java/org/springframework/security/authentication/dao/DaoAuthenticationProvider.java#L145
+        CVE-2025-22234 - This link contain a fix path version It use dummy password like i do
+        */ 
         const { username, password } = data;
         const existedUser = await User.findOne({ where: { username: username } });
 

@@ -2,6 +2,7 @@ const express = require('express');
 const router = express.Router();
 const { authController } = require('../../controllers/v1');
 const { validateLogin, validate } = require('../../middlewares');
+
 // POST /api/v1/auth/enum/different-responses - Lab: Username enumeration via different responses
 router.post('/enum/different-responses', validateLogin, validate, authController.loginEnumDifferent);
 
