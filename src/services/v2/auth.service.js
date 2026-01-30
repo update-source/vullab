@@ -1,4 +1,5 @@
 const { User } = require('../../models');
+const { Op } = require('sequelize');
 const bcrypt = require('bcryptjs');
 const AppError = require('../../utils/AppError');
 
@@ -7,7 +8,7 @@ const authService = {
     async register(data) {
         const { username, email, password } = data;
 
-        const existingUser = await User.findOne({ where: { username } });
+        const existingUser = await User.findOne({ where: { [Op.or]: [{ username }, { email }] } });
         if (existingUser) {
             throw new AppError(409, 'User already existed');
         }
@@ -34,7 +35,7 @@ const authService = {
         CVE-2025-22234 - This link contain a fix path version It use dummy password like i do
         */ 
         const { username, password } = data;
-        const existedUser = await User.findOne({ where: { username: username } });
+        const existedUser = await User.findOne({ where: { [Op.or]: [{ username }, { email: username }] } });
 
         const dummyHash = '$2a$10$abcdefghijklmnopqrstuvwxyzABC';
         const targetHash = existedUser ? existedUser.password : dummyHash;
