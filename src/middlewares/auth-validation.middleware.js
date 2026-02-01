@@ -13,7 +13,11 @@ const registerRules = [
     body('username')
         .trim()
         .notEmpty().withMessage('Username is required')
-        .isLength({ min: 3, max: 50 }).withMessage('Username must be between 3 and 50 characters')
+        .isLength({ min: 3, max: 30 }).withMessage('Username must be between 3 and 30 characters')
+        .matches(/^[a-zA-Z0-9_-]+$/).withMessage('Username can only contain letters, numbers, underscore and hyphen')
+        .matches(/^[a-zA-Z0-9]/).withMessage('Username must start with a letter or number')
+        .matches(/[a-zA-Z0-9]$/).withMessage('Username must end with a letter or number')
+        .not().matches(/[-_]{2,}/).withMessage('Username cannot contain consecutive special characters')
         .toLowerCase(),
 
     body('email')

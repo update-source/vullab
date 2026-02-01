@@ -2,12 +2,14 @@ const express = require('express');
 const app = express();
 const port = 3000;
 const { sequelize } = require('./src/config/database');
+const useragent = require('express-useragent');
 
 app.use(express.static('public'))
 app.set('view engine', 'pug');
 app.set('views', 'views');
 
 // Middleware xử lý JSON body (bắt buộc để backend đọc được req.body)
+app.use(useragent.express())
 app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
 

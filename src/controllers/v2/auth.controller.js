@@ -39,6 +39,15 @@ const authController = {
         }
     },
 
+    async loginSecureIpBlock(req, res, next) {
+        try {
+            const result = await authService.loginSecureIpBlock(req.body, req.ip, req.useragent);
+            return successResponse(res, result, 'Login successful');
+        } catch (error) {
+            next(error);
+        }
+    }
+
 };
 
 module.exports = authController;

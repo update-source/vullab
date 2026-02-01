@@ -29,6 +29,15 @@ const authController = {
             next(error);
         }
     },
+
+    async loginBrokenIpBlock(req, res, next) {
+        try {
+            const result = await authService.loginBrokenIpBlock(req.body, req.ip, req.useragent);
+            return successResponse(res, result, 'Login successful');
+        } catch (error) {
+            next(error);
+        }
+    }
 };
 
 module.exports = authController;

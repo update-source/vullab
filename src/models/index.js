@@ -5,6 +5,7 @@ const { UserProfile } = require('./user/user_profile.model');
 const { UserToken } = require('./user/user_token.model');
 const { UserSecurityLog } = require('./user/user_security_log.model');
 const { UserSetting } = require('./user/user_setting.model');
+const { LoginAttempt } = require('./user/login-attempt.model');
 const { Address } = require('./shared/address.model');
 const { UserAddress } = require('./shared/user_address.model');
 const { Country } = require('./shared/country.model');
@@ -106,7 +107,7 @@ Promotion.belongsToMany(Category, { through: PromotionCategory, foreignKey: 'pro
 
 module.exports = {
     sequelize,
-    User, UserProfile, UserToken, UserSecurityLog, UserSetting,
+    User, UserProfile, UserToken, UserSecurityLog, UserSetting, LoginAttempt,
     Address, UserAddress, Country,
     Category, Product, ProductItem, UserReview,
     ShoppingCart, ShoppingCartItem,
