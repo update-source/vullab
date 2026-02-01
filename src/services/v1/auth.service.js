@@ -1,5 +1,6 @@
 // V1 Service - Will contain vulnerable logic
-const { User, LoginAttempt } = require('../../models');
+const { User, LoginAttempt, UserSecurityLog } = require('../../models');
+const { Op } = require('sequelize');
 const bcrypt = require('bcryptjs');
 const AppError = require('../../utils/AppError');
 const authService = {
@@ -71,6 +72,56 @@ const authService = {
         };
     },
 
+    async loginEnumViaAccountLock(data) {
+        const { username, password } = data;
+        const existedUser = await User.findOne({ where: { username: username }});
+        const userId = existedUser ? existedUser.id : null;
+
+        const dummyHash = '$2a$10$abcdefghijklmnopqrstuvwxyzABC';
+        const targetHash = existedUser ? existedUser.password : dummyHash;
+
+        const isMatch = await bcrypt.compare(password, targetHash);
+
+        if (existedUser && isMatch) {
+            await UserSecurityLog.destroy({ where: {
+                userId: userId,
+                eventType: 'login_failed'
+            }});
+
+            return {
+                id: existedUser.id,
+                username: existedUser.username,
+                email: existedUser.email,
+                createdAt: existedUser.createdAt
+            };
+        };
+
+        if (existedUser && !isMatch) {
+            const failedAttempts = await UserSecurityLog.count({
+                where: {
+                    userId: userId,
+                    eventType: 'login_failed',
+                    createdAt: {
+                        [Op.gte]: new Date(Date.now() - 3 * 60 * 1000)
+                    }
+                }
+            });
+            const MAX_ATTEMPTS = 3;
+
+            if (failedAttempts >= MAX_ATTEMPTS) {
+                throw new AppError(429, "You have made too many incorrect login attempts. Please try again in 1 minute(s).");
+            }
+            
+            await UserSecurityLog.create({
+                userId: userId,
+                eventType: 'login_failed',
+                createdAt: new Date(Date.now())
+            });
+            throw new AppError(401, "Invalid username or password");
+        }
+        throw new AppError(401, "Invalid username or password");
+    },
+
     async loginBrokenIpBlock(data, ip, metadata) {
         const { username, password } = data;
         const existedUser = await User.findOne({ where: { username: username }});
@@ -127,9 +178,9 @@ const authService = {
         }
 
         const newAttemptCount = existedIp.attemptCount + 1;
-        
-        if (newAttemptCount >= 3) {
-            const blockedUntil = new Date(Date.now() + 3 * 60 * 1000);
+        const MAX_ATTEMPTS = 3;
+        if (newAttemptCount >= MAX_ATTEMPTS) {
+            const blockedUntil = new Date(Date.now() + 1 * 60 * 1000);
             await LoginAttempt.update(
                 { 
                     attemptCount: newAttemptCount,
@@ -139,7 +190,7 @@ const authService = {
                 }, 
                 { where: { ipAddress: ip }}
             );
-            throw new AppError(429, "Too many failed attempts. IP blocked for 3 minutes");
+            throw new AppError(429, "You have made too many incorrect login attempts. Please try again in 1 minute(s).");
         } else {
             await LoginAttempt.update(
                 { 

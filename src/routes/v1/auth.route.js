@@ -7,6 +7,6 @@ const { loginRules, handleValidation } = require('../../middlewares');
 router.post('/enum/different-responses', loginRules, handleValidation, authController.loginEnumDifferent);
 router.post('/enum/subtle-responses', loginRules, handleValidation, authController.loginEnumSubtle);
 router.post('/enum/timing-responses', loginRules, handleValidation, authController.loginEnumTiming);
+router.post('/enum/account-lock', loginRules, handleValidation, authController.loginEnumViaAccountLock)
 router.post('/brute-force/broken-ip-block', loginRules, handleValidation, authController.loginBrokenIpBlock);
-    
 module.exports = router;

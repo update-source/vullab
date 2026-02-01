@@ -37,7 +37,17 @@ const authController = {
         } catch (error) {
             next(error);
         }
-    }
+    },
+
+    async loginEnumViaAccountLock(req, res, next) {
+        try {
+            const result = await authService.loginEnumViaAccountLock(req.body);
+            return successResponse(res, result, 'Login successful');
+        } catch (error) {
+            next(error);
+        }
+    },
+
 };
 
 module.exports = authController;
