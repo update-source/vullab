@@ -56,7 +56,15 @@ const authController = {
             next(error);
         }
     },
-    //
+    
+    async loginSecureMultipleCredsPerRequest(req, res, next) {
+        try {
+            const result = await authService.loginSecureMultipleCredsPerRequest(req.body, req.ip, req.useragent);
+            return successResponse(res, result, 'Login successful');
+        } catch (error) {
+            next(error);
+        }
+    },
 
 };
 
