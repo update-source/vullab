@@ -46,7 +46,17 @@ const authController = {
         } catch (error) {
             next(error);
         }
-    }
+    },
+
+    async loginSecureAccountLock(req, res, next) {
+        try {
+            const result = await authService.loginSecureAccountLock(req.body);
+            return successResponse(res, result, 'Login successful');
+        } catch (error) {
+            next(error);
+        }
+    },
+    //
 
 };
 

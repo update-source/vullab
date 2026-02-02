@@ -10,7 +10,7 @@ UserSecurityLog.init({
     },
     userId: {
         type: DataTypes.UUID,
-        allowNull: false,
+        allowNull: true, // Allow null to track failed attempts for non-existing usernames
         references: {
             model: 'user',
             key: 'id'

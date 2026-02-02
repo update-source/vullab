@@ -1,4 +1,4 @@
-const { User, LoginAttempt } = require('../../models');
+const { User, LoginAttempt, UserSecurityLog } = require('../../models');
 const { Op } = require('sequelize');
 const bcrypt = require('bcryptjs');
 const AppError = require('../../utils/AppError');
@@ -52,6 +52,59 @@ const authService = {
             email: existedUser.email,
             createdAt: existedUser.createdAt
         };
+    },
+
+    async loginSecureAccountLock(data) {
+        const { username, password } = data;
+        
+        // Check failed attempts by username STRING (works for both existing and non-existing users)
+        const failedAttempts = await UserSecurityLog.count({
+            where: {
+                metadata: { username: username },
+                eventType: 'login_failed',
+                createdAt: {
+                    [Op.gte]: new Date(Date.now() - 3 * 60 * 1000)
+                }
+            }
+        });
+        
+        const MAX_ATTEMPTS = 3;
+        if (failedAttempts >= MAX_ATTEMPTS) {
+            throw new AppError(401, "Invalid username or password");
+        }
+
+        const existedUser = await User.findOne({ where: { username: username }});
+        const dummyHash = '$2a$10$abcdefghijklmnopqrstuvwxyzABC';
+        const targetHash = existedUser ? existedUser.password : dummyHash;
+
+        const isMatch = await bcrypt.compare(password, targetHash);
+
+        if (existedUser && isMatch) {
+            // Clear failed attempts on successful login
+            await UserSecurityLog.destroy({ 
+                where: {
+                    metadata: { username: username },
+                    eventType: 'login_failed'
+                }
+            });
+
+            return {
+                id: existedUser.id,
+                username: existedUser.username,
+                email: existedUser.email,
+                createdAt: existedUser.createdAt
+            };
+        }
+
+        // Track failed attempt for BOTH existing and non-existing users
+        await UserSecurityLog.create({
+            userId: existedUser ? existedUser.id : null,
+            eventType: 'login_failed',
+            metadata: { username: username },
+            createdAt: new Date()
+        });
+        
+        throw new AppError(401, "Invalid username or password");
     },
 
     async loginSecureIpBlock(data, ip, metadata) {
@@ -133,7 +186,8 @@ const authService = {
             email: existedUser.email,
             createdAt: existedUser.createdAt
         };
-    }
+    },
+
 };
 
 module.exports = authService;

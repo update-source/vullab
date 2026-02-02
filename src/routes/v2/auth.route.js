@@ -7,6 +7,7 @@ router.post('/register', registerRules, handleValidation, authController.registe
 router.post('/enum/different-responses', loginRules, handleValidation, authController.loginEnumDifferentFix);
 router.post('/enum/subtle-responses', loginRules, handleValidation, authController.loginEnumSubtleFix);
 router.post('/enum/timing-responses', loginRules, handleValidation, authController.loginEnumTimingFix);
+router.post('/enum/account-lock', loginRules, handleValidation, authController.loginSecureAccountLock);
 router.post('/brute-force/broken-ip-block', loginRules, handleValidation, authController.loginSecureIpBlock);
 
 module.exports = router;
