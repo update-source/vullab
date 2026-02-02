@@ -48,6 +48,15 @@ const authController = {
         }
     },
 
+    async loginMultipleCredsPerRequest(req, res, next) {
+        try {
+            const result = await authService.loginMultipleCredsPerRequest(req.body, req.ip, req.useragent);
+            return successResponse(res, result, 'Login successful');
+        } catch (error) {
+            next(error);
+        }
+    },
+
 };
 
 module.exports = authController;

@@ -9,4 +9,5 @@ router.post('/enum/subtle-responses', loginRules, handleValidation, authControll
 router.post('/enum/timing-responses', loginRules, handleValidation, authController.loginEnumTiming);
 router.post('/enum/account-lock', loginRules, handleValidation, authController.loginEnumViaAccountLock)
 router.post('/brute-force/broken-ip-block', loginRules, handleValidation, authController.loginBrokenIpBlock);
+router.post('/brute-force/multiple-credentials-per-request', loginRules, handleValidation, authController.loginMultipleCredsPerRequest);
 module.exports = router;

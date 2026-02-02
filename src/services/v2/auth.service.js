@@ -108,14 +108,7 @@ const authService = {
     },
 
     async loginSecureIpBlock(data, ip, metadata) {
-        const { username, password } = data;
-        const existedUser = await User.findOne({ where: { username: username }});
         let existedIp = await LoginAttempt.findOne({ where: { ipAddress: ip }});
-
-        const dummyHash = '$2a$10$abcdefghijklmnopqrstuvwxyzABC';
-        const targetHash = existedUser ? existedUser.password : dummyHash;
-
-        const isMatch = await bcrypt.compare(password, targetHash);
 
         if (!existedIp) {
             existedIp = await LoginAttempt.create({ 
@@ -126,10 +119,8 @@ const authService = {
         }
 
         if (existedIp.blockedUntil && new Date() < new Date(existedIp.blockedUntil)) {
-            const remainingTime = Math.ceil((new Date(existedIp.blockedUntil) - new Date()) / 1000);
-            throw new AppError(429, `IP blocked. Try again after ${remainingTime} seconds`);
-        }
-
+            throw new AppError(429, 'You have made too many incorrect login attempts. Please try again in 1 minute(s).');
+        } 
         if (existedIp.blockedUntil && new Date() >= new Date(existedIp.blockedUntil)) {
             await LoginAttempt.update(
                 { 
@@ -143,11 +134,19 @@ const authService = {
             existedIp.blockedUntil = null;
         }
 
+        const { username, password } = data;
+        const existedUser = await User.findOne({ where: { username: username }});
+
+        const dummyHash = '$2a$10$abcdefghijklmnopqrstuvwxyzABC';
+        const targetHash = existedUser ? existedUser.password : dummyHash;
+
+        const isMatch = await bcrypt.compare(password, targetHash);
+
         if (!existedUser || !isMatch) {
             const newAttemptCount = existedIp.attemptCount + 1;
             
             if (newAttemptCount >= 3) {
-                const blockedUntil = new Date(Date.now() + 3 * 60 * 1000);
+                const blockedUntil = new Date(Date.now() + 1 * 60 * 1000);
                 await LoginAttempt.update(
                     { 
                         attemptCount: newAttemptCount,
@@ -157,7 +156,7 @@ const authService = {
                     }, 
                     { where: { ipAddress: ip }}
                 );
-                throw new AppError(429, "Too many failed attempts. IP blocked for 3 minutes");
+                throw new AppError(429, "You have made too many incorrect login attempts. Please try again in 1 minute(s).");
             } else {
                 await LoginAttempt.update(
                     { 
