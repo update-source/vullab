@@ -297,6 +297,26 @@ const authService = {
             createdAt: existedUser.createdAt
         };
     },
+
+    async login2FASimpleBypass(data) {
+        const { username, password } = data;
+        const existedUser = await User.findOne({ where: { username: username }});
+        
+        const dummyHash = '$2a$10$abcdefghijklmnopqrstuvwxyzABC';
+        const targetHash = existedUser ? existedUser.password : dummyHash;
+
+        const isMatch = await bcrypt.compare(password, targetHash);
+
+        if (!existedUser || !isMatch) {
+            throw new AppError(401, "Invalid username or password");
+        }
+
+        if (!existedUser.isEmailVerified) {
+            throw new AppError(403, "Please verify your email before logging in.");        
+        }
+        
+        
+    },
 };
 
 module.exports = authService;

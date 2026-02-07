@@ -1,15 +1,16 @@
 const express = require('express');
+const session = require('./src/config/session')
+const { connectRedis } = require('./src/config/redis');
 const app = express();
 const port = 3000;
-const { sequelize } = require('./src/config/database');
 const useragent = require('express-useragent');
 
 app.use(express.static('public'))
 app.set('view engine', 'pug');
 app.set('views', 'views');
 
-// Middleware xử lý JSON body (bắt buộc để backend đọc được req.body)
 app.use(useragent.express())
+app.use(session);
 app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
 
@@ -26,15 +27,21 @@ app.get('/', (req, res) => {
     });
 });
 
-// Database synchronization should be done via specific scripts (npm run db:sync), not on server start.
-// (async () => {
-//     await sequelize.sync({ force: true });
-//     console.log('All models were synchronized successfully.');
-// })();
-
 // Global Error Handler must be the last middleware
 app.use(errorHandler);
 
-app.listen(port, () => {
-    console.log(`Server đang chạy tại http://localhost:${port}`);
-});
+// Start server with Redis connection
+const startServer = async () => {
+    try {
+        await connectRedis();
+
+        app.listen(port, () => {
+            console.log(`Server đang chạy tại http://localhost:${port}`);
+        });
+    } catch (err) {
+        console.error('❌ Failed to start server:', err.message);
+    }
+};
+
+
+startServer();

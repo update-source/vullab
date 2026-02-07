@@ -57,6 +57,15 @@ const authController = {
         }
     },
 
+    async login2FASimpleBypass(req, res, next) {
+        try {
+            const result = await authService.login2FASimpleBypass(req.body);
+            return successResponse(res, result, 'Login successful');
+        } catch (error) {
+            next(error);
+        }
+    },
+
 };
 
 module.exports = authController;

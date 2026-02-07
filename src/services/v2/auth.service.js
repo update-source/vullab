@@ -4,18 +4,27 @@ const bcrypt = require('bcryptjs');
 const AppError = require('../../utils/AppError');
 
 const authService = {
-
+    /* 
+        WARNING: EDUCATIONAL PURPOSE ONLY - NOT FOR PRODUCTION
+        
+        This file demonstrates security vulnerabilities and basic patches for learning.
+        In production, use battle-tested libraries (rate-limiter-flexible, Redis) instead.
+        
+        Known issues: Race conditions, no distributed support, poor performance, 
+        missing audit trails, no proper rate limiting algorithms.
+    */
     async register(data) {
         const { username, email, password } = data;
 
         const existingUser = await User.findOne({ where: { [Op.or]: [{ username }, { email }] } });
-        if (existingUser) {
-            throw new AppError(409, 'User already existed');
-        }
 
         const saltRounds = 10;
         const salt = await bcrypt.genSalt(saltRounds);
         const hashedPassword = await bcrypt.hash(password, salt);
+
+        if (existingUser) {
+            throw new AppError(409, 'User already existed');
+        }
 
         const newUser = await User.create({
             username,
@@ -29,13 +38,28 @@ const authService = {
             email: newUser.email,
         };
     },
+    async register2FA(data) {
+        const { username, email, password } = data;
+        
+        const existingUser = await User.findOne({ where: { [Op.or]: [{ username }, { email }] } });
 
+        const saltRounds = 10;
+        const salt = await bcrypt.genSalt(saltRounds);
+        const hashedPassword = await bcrypt.hash(password, salt);
+
+        if (existingUser) {
+            return new AppError(200, 'If this email is not already registered, we have sent an activation link to your inbox. Please check your email.');
+        }
+        
+        
+    }
+    ,
     async loginSecure(data) {
         /*https://github.com/spring-projects/spring-security/blob/c5632ccd838fcb2753a978918561081cff037510/core/src/main/java/org/springframework/security/authentication/dao/DaoAuthenticationProvider.java#L145
         CVE-2025-22234 - This link contain a fix path version It use dummy password like i do
         */
         const { username, password } = data;
-        const existedUser = await User.findOne({ where: { [Op.or]: [{ username }, { email: username }] } });
+        const existedUser = await User.findOne({ where: {username: username }});
 
         const dummyHash = '$2a$10$abcdefghijklmnopqrstuvwxyzABC';
         const targetHash = existedUser ? existedUser.password : dummyHash;
@@ -56,7 +80,12 @@ const authService = {
 
     async loginSecureAccountLock(data) {
         const { username, password } = data;
-        
+        //https://github.com/animir/node-rate-limiter-flexible/wiki/Overall-example#minimal-protection-against-password-brute-force
+        // I assume that if the user does not exist, there must be a place to save it, so metadata would be reasonable in this case.
+        // Note, this approach may be an issue for your users, if somebody knows your service applies it. 
+        // It can be scheduled to send 5 password tries every 15 minutes and block user account for infinity. 
+        // It should not be a problem for MVP or early stages of a startup.
+
         // Check failed attempts by username STRING (works for both existing and non-existing users)
         const failedAttempts = await UserSecurityLog.count({
             where: {
@@ -107,7 +136,7 @@ const authService = {
         throw new AppError(401, "Invalid username or password");
     },
 
-    async loginSecureIpBlock(data, ip, metadata) {
+    async loginSecureIpBlock(data, ip, metadata) { 
         let existedIp = await LoginAttempt.findOne({ where: { ipAddress: ip }});
 
         if (!existedIp) {
@@ -270,7 +299,120 @@ const authService = {
             createdAt: existedUser.createdAt
         };
     },
+    
+    async loginSecureIpLocAccountTracking(data, ip, metadata) {
+        let existedIp = await LoginAttempt.findOne({ where: {ipAddress: ip }});
 
+        if (!existedIp) {
+            existedIp = await LoginAttempt.create({
+                ipAddress: ip,
+                attemptCount: 0,
+                metadata: metadata,
+            });
+        };
+
+        if (existedIp.blockedUntil && new Date() < new Date(existedIp.blockedUntil)) {
+            throw new AppError(429, 'You have made too many incorrect login attempts. Please try again in 1 minute(s).');
+        };
+
+        if (existedIp.blockedUntil && new Date() >= new Date(existedIp.blockedUntil)) {
+            await LoginAttempt.update(
+                { 
+                    attemptCount: 0,
+                    blockedUntil: null,
+                    metadata: metadata
+                }, 
+                { where: { ipAddress: ip }}
+            );
+            existedIp.attemptCount = 0;
+            existedIp.blockedUntil = null;
+        };
+
+        const { username, password } = data;
+        const existedUser = await User.findOne({ where: {username: username }});
+        const dummyHash = '$2a$10$abcdefghijklmnopqrstuvwxyzABC';
+        const targetHash = existedUser ? existedUser.password : dummyHash;
+
+        const singlePassword = Array.isArray(password) ? password[0] : password;
+        const isMatch = await bcrypt.compare(singlePassword, targetHash);
+
+        if (!existedUser || !isMatch) {
+            const MAX_ATTEMPTS = 3;
+            
+            // if existedUser and password is wrong
+            if (existedUser) {
+                const userFailedAttempts = await UserSecurityLog.count({
+                    where: {
+                        userId: existedUser.id, 
+                        eventType: 'login_failed',
+                        createdAt: {
+                            [Op.gte]: new Date(Date.now() - 3 * 60 * 1000)
+                        }
+                    }
+                });
+                
+                if (userFailedAttempts >= MAX_ATTEMPTS) {
+                    await UserSecurityLog.create({
+                        userId: existedUser.id,
+                        eventType: 'account_under_attack',
+                        metadata: { username: username, ip: ip },
+                        createdAt: new Date()
+                    });
+                }
+            }
+            
+            const newAttemptCount = existedIp.attemptCount + 1;
+            await UserSecurityLog.create({
+                userId: existedUser ? existedUser.id : null,
+                eventType: 'login_failed',
+                metadata: { username: username, ip: ip },
+                createdAt: new Date()
+            });
+            
+            if (newAttemptCount >= MAX_ATTEMPTS) {
+                const blockedUntil = new Date(Date.now() + 1 * 60 * 1000);
+                await LoginAttempt.update(
+                    { 
+                        attemptCount: newAttemptCount,
+                        blockedUntil: blockedUntil,
+                        lastAttempt: new Date(),
+                        metadata: metadata
+                    }, 
+                    { where: { ipAddress: ip }}
+                );
+                
+                throw new AppError(429, "You have made too many incorrect login attempts. Please try again in 1 minute(s).");
+            } else {
+                await LoginAttempt.update(
+                    { 
+                        attemptCount: newAttemptCount,
+                        lastAttempt: new Date(),
+                        metadata: metadata
+                    }, 
+                    { where: { ipAddress: ip }}
+                );
+                
+                throw new AppError(401, "Invalid username or password");
+            }                    
+        }
+
+        await LoginAttempt.update(
+            { 
+                attemptCount: 0,
+                blockedUntil: null,
+                lastAttempt: new Date(),
+                metadata: metadata
+            }, 
+            { where: { ipAddress: ip }}
+        );
+        
+        return {
+            id: existedUser.id,
+            username: existedUser.username,
+            email: existedUser.email,
+            createdAt: existedUser.createdAt
+        };        
+    },
 };
 
 module.exports = authService;

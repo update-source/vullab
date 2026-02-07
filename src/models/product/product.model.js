@@ -1,4 +1,4 @@
-const { sequelize, DataTypes, Model } = require('../../config/database');
+const { sequelize, DataTypes, Model } = require('../../config/database.config');
 
 class Product extends Model { }
 

@@ -10,5 +10,7 @@ router.post('/enum/timing-responses', loginRules, handleValidation, authControll
 router.post('/enum/account-lock', loginRules, handleValidation, authController.loginSecureAccountLock);
 router.post('/brute-force/broken-ip-block', loginRules, handleValidation, authController.loginSecureIpBlock);
 router.post('/brute-force/multiple-credentials-per-request', loginRules, handleValidation, authController.loginSecureMultipleCredsPerRequest);
+//router.post('/brute-force/test', loginRules, handleValidation, authController.loginSecureIpLocAccountTracking);
 
+//loginSecureAccountIpLock
 module.exports = router;
