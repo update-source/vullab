@@ -12,4 +12,5 @@ router.post('/brute-force/broken-ip-block', loginRules, handleValidation, authCo
 router.post('/brute-force/multiple-credentials-per-request', loginRules, handleValidation, authController.loginMultipleCredsPerRequest);
 //Vulnerabilities in multi-factor authentication
 router.post('/2FA/simple-bypass', loginRules, handleValidation, authController.login2FASimpleBypass);
+router.post('/2FA/verify-otp', loginRules, handleValidation, authController.verify2WOtp);
 module.exports = router;

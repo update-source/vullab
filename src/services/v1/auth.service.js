@@ -3,6 +3,8 @@ const { User, LoginAttempt, UserSecurityLog } = require('../../models');
 const { Op } = require('sequelize');
 const bcrypt = require('bcryptjs');
 const AppError = require('../../utils/AppError');
+const { redisClient } = require('../../config/redis.config');
+const crypto = require('crypto');
 const authService = {
 
     async loginEnumDifferent(data) {
@@ -74,7 +76,7 @@ const authService = {
 
     async loginEnumViaAccountLock(data) {
         const { username, password } = data;
-        const existedUser = await User.findOne({ where: { username: username }});
+        const existedUser = await User.findOne({ where: { username: username } });
         const userId = existedUser ? existedUser.id : null;
 
         const dummyHash = '$2a$10$abcdefghijklmnopqrstuvwxyzABC';
@@ -83,10 +85,12 @@ const authService = {
         const isMatch = await bcrypt.compare(password, targetHash);
 
         if (existedUser && isMatch) {
-            await UserSecurityLog.destroy({ where: {
-                userId: userId,
-                eventType: 'login_failed'
-            }});
+            await UserSecurityLog.destroy({
+                where: {
+                    userId: userId,
+                    eventType: 'login_failed'
+                }
+            });
 
             return {
                 id: existedUser.id,
@@ -111,7 +115,7 @@ const authService = {
             if (failedAttempts >= MAX_ATTEMPTS) {
                 throw new AppError(429, "You have made too many incorrect login attempts. Please try again in 1 minute(s).");
             }
-            
+
             await UserSecurityLog.create({
                 userId: userId,
                 eventType: 'login_failed',
@@ -124,8 +128,8 @@ const authService = {
 
     async loginBrokenIpBlock(data, ip, metadata) {
         const { username, password } = data;
-        const existedUser = await User.findOne({ where: { username: username }});
-        let existedIp = await LoginAttempt.findOne({ where: { ipAddress: ip }});
+        const existedUser = await User.findOne({ where: { username: username } });
+        let existedIp = await LoginAttempt.findOne({ where: { ipAddress: ip } });
 
         const dummyHash = '$2a$10$abcdefghijklmnopqrstuvwxyzABC';
         const targetHash = existedUser ? existedUser.password : dummyHash;
@@ -133,8 +137,8 @@ const authService = {
         const isMatch = await bcrypt.compare(password, targetHash);
 
         if (!existedIp) {
-            existedIp = await LoginAttempt.create({ 
-                ipAddress: ip, 
+            existedIp = await LoginAttempt.create({
+                ipAddress: ip,
                 attemptCount: 0,
                 metadata: metadata
             });
@@ -142,13 +146,13 @@ const authService = {
 
         if (existedUser && isMatch) {
             await LoginAttempt.update(
-                { 
+                {
                     attemptCount: 0,
                     blockedUntil: null,
                     lastAttempt: new Date(),
                     metadata: metadata
-                }, 
-                { where: { ipAddress: ip }}
+                },
+                { where: { ipAddress: ip } }
             );
 
             return {
@@ -161,16 +165,16 @@ const authService = {
 
         if (existedIp.blockedUntil && new Date() < new Date(existedIp.blockedUntil)) {
             throw new AppError(429, 'You have made too many incorrect login attempts. Please try again in 1 minute(s).');
-        } 
-        
+        }
+
         if (existedIp.blockedUntil && new Date() >= new Date(existedIp.blockedUntil)) {
             await LoginAttempt.update(
-                { 
+                {
                     attemptCount: 0,
                     blockedUntil: null,
                     metadata: metadata
-                }, 
-                { where: { ipAddress: ip }}
+                },
+                { where: { ipAddress: ip } }
             );
             existedIp.attemptCount = 0;
             existedIp.blockedUntil = null;
@@ -181,23 +185,23 @@ const authService = {
         if (newAttemptCount >= MAX_ATTEMPTS) {
             const blockedUntil = new Date(Date.now() + 1 * 60 * 1000);
             await LoginAttempt.update(
-                { 
+                {
                     attemptCount: newAttemptCount,
                     blockedUntil: blockedUntil,
                     lastAttempt: new Date(),
                     metadata: metadata
-                }, 
-                { where: { ipAddress: ip }}
+                },
+                { where: { ipAddress: ip } }
             );
             throw new AppError(429, "You have made too many incorrect login attempts. Please try again in 1 minute(s).");
         } else {
             await LoginAttempt.update(
-                { 
+                {
                     attemptCount: newAttemptCount,
                     lastAttempt: new Date(),
                     metadata: metadata
-                }, 
-                { where: { ipAddress: ip }}
+                },
+                { where: { ipAddress: ip } }
             );
             throw new AppError(401, "Invalid username or password");
         }
@@ -205,7 +209,7 @@ const authService = {
 
     async loginMultipleCredsPerRequest(data, ip, metadata) {
         // Adding the Ip block, checking the ip first, then check user and password
-        let existedIp = await LoginAttempt.findOne({ where: {ipAddress: ip }});
+        let existedIp = await LoginAttempt.findOne({ where: { ipAddress: ip } });
 
         if (!existedIp) {
             existedIp = await LoginAttempt.create({
@@ -221,28 +225,28 @@ const authService = {
 
         if (existedIp.blockedUntil && new Date() >= new Date(existedIp.blockedUntil)) {
             await LoginAttempt.update(
-                { 
+                {
                     attemptCount: 0,
                     blockedUntil: null,
                     metadata: metadata
-                }, 
-                { where: { ipAddress: ip }}
+                },
+                { where: { ipAddress: ip } }
             );
             existedIp.attemptCount = 0;
             existedIp.blockedUntil = null;
         }
-        
+
         const { username, password } = data;
-        const existedUser = await User.findOne({ where: {username: username }});
-        
+        const existedUser = await User.findOne({ where: { username: username } });
+
         const dummyHash = '$2a$10$abcdefghijklmnopqrstuvwxyzABC';
         const targetHash = existedUser ? existedUser.password : dummyHash;
-        let isMatch = false; 
+        let isMatch = false;
 
         if (Array.isArray(password)) {
             for (const pass of password) {
                 const matchFound = await bcrypt.compare(pass, targetHash);
-                
+
                 if (matchFound) {
                     isMatch = true;
                     break;
@@ -258,36 +262,36 @@ const authService = {
             if (newAttemptCount >= MAX_ATTEMPTS) {
                 const blockedUntil = new Date(Date.now() + 1 * 60 * 1000);
                 await LoginAttempt.update(
-                    { 
+                    {
                         attemptCount: newAttemptCount,
                         blockedUntil: blockedUntil,
                         lastAttempt: new Date(),
                         metadata: metadata
-                    }, 
-                    { where: { ipAddress: ip }}
+                    },
+                    { where: { ipAddress: ip } }
                 );
                 throw new AppError(429, "You have made too many incorrect login attempts. Please try again in 1 minute(s).");
             } else {
                 await LoginAttempt.update(
-                    { 
+                    {
                         attemptCount: newAttemptCount,
                         lastAttempt: new Date(),
                         metadata: metadata
-                    }, 
-                    { where: { ipAddress: ip }}
+                    },
+                    { where: { ipAddress: ip } }
                 );
                 throw new AppError(401, "Invalid username or password");
-            }                    
+            }
         }
 
         await LoginAttempt.update(
-            { 
+            {
                 attemptCount: 0,
                 blockedUntil: null,
                 lastAttempt: new Date(),
                 metadata: metadata
-            }, 
-            { where: { ipAddress: ip }}
+            },
+            { where: { ipAddress: ip } }
         );
 
         return {
@@ -300,8 +304,8 @@ const authService = {
 
     async login2FASimpleBypass(data) {
         const { username, password } = data;
-        const existedUser = await User.findOne({ where: { username: username }});
-        
+        const existedUser = await User.findOne({ where: { username: username } });
+
         const dummyHash = '$2a$10$abcdefghijklmnopqrstuvwxyzABC';
         const targetHash = existedUser ? existedUser.password : dummyHash;
 
@@ -312,10 +316,45 @@ const authService = {
         }
 
         if (!existedUser.isEmailVerified) {
-            throw new AppError(403, "Please verify your email before logging in.");        
+            throw new AppError(403, "Please verify your email before logging in.");
         }
-        
-        
+
+        const otp = crypto.randomInt(100000, 999999);
+        const key = `otp:${existedUser.id}`;
+
+        await redisClient.set(key, otp, { EX: 60 });
+
+        return {
+            id: existedUser.id,
+            username: existedUser.username,
+            email: existedUser.email
+        };
+    },
+
+    async verify2WOtp(userId, otp) {
+        const storedOtp = await redisClient.get(`otp:${userId}`);
+
+        if (!storedOtp) {
+            throw new AppError(400, 'OTP has expired');
+        }
+
+        if (otp !== storedOtp) {
+            throw new AppError(400, 'Invalid OTP');
+        }
+
+        const user = await User.findByPk(userId);
+        if (!user) {
+            throw new AppError(404, 'User not found');
+        }
+
+        await redisClient.del(`otp:${userId}`);
+
+        return {
+            id: user.id,
+            username: user.username,
+            email: user.email,
+            createdAt: user.createdAt
+        };
     },
 };
 

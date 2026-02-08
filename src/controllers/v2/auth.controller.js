@@ -5,8 +5,9 @@ const authController = {
 
     async register(req, res, next) {
         try {
-            const user = await authService.register(req.body);
-            return successResponse(res, user, 'User registered successfully', 201);
+            const result = await authService.register(req.body);
+            const { message, ...user } = result;
+            return successResponse(res, user, message, 201);
         } catch (error) {
             next(error);
         }
@@ -56,7 +57,7 @@ const authController = {
             next(error);
         }
     },
-    
+
     async loginSecureMultipleCredsPerRequest(req, res, next) {
         try {
             const user = await authService.loginSecureMultipleCredsPerRequest(req.body, req.ip, req.useragent); // Reverse proxy is not exist in this case so i used req.ip

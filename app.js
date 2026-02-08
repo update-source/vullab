@@ -1,6 +1,6 @@
 const express = require('express');
-const session = require('./src/config/session')
-const { connectRedis } = require('./src/config/redis');
+const session = require('./src/config/session.config');
+const { connectRedis } = require('./src/config/redis.config');
 const app = express();
 const port = 3000;
 const useragent = require('express-useragent');

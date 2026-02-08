@@ -6,7 +6,11 @@ const authController = {
     async loginEnumDifferent(req, res, next) {
         try {
             const result = await authService.loginEnumDifferent(req.body);
-            return successResponse(res, result, 'Login successful');
+            req.session.userId = result.id;
+            req.session.stage = 'logged_in';
+            await req.session.save();
+
+            return res.redirect(302, '/api/v1/profile');
         } catch (error) {
             next(error);
         }
@@ -15,7 +19,11 @@ const authController = {
     async loginEnumSubtle(req, res, next) {
         try {
             const result = await authService.loginEnumSubtle(req.body);
-            return successResponse(res, result, 'Login successful');
+            req.session.userId = result.id;
+            req.session.stage = 'logged_in';
+            await req.session.save();
+
+            return res.redirect(302, '/api/v1/profile');
         } catch (error) {
             next(error);
         }
@@ -24,7 +32,11 @@ const authController = {
     async loginEnumTiming(req, res, next) {
         try {
             const result = await authService.loginEnumTiming(req.body);
-            return successResponse(res, result, 'Login successful');
+            req.session.userId = result.id;
+            req.session.stage = 'logged_in';
+            await req.session.save();
+
+            return res.redirect(302, '/api/v1/profile');
         } catch (error) {
             next(error);
         }
@@ -33,7 +45,11 @@ const authController = {
     async loginBrokenIpBlock(req, res, next) {
         try {
             const result = await authService.loginBrokenIpBlock(req.body, req.ip, req.useragent);
-            return successResponse(res, result, 'Login successful');
+            req.session.userId = result.id;
+            req.session.stage = 'logged_in';
+            await req.session.save();
+
+            return res.redirect(302, '/api/v1/profile');
         } catch (error) {
             next(error);
         }
@@ -42,7 +58,11 @@ const authController = {
     async loginEnumViaAccountLock(req, res, next) {
         try {
             const result = await authService.loginEnumViaAccountLock(req.body);
-            return successResponse(res, result, 'Login successful');
+            req.session.userId = result.id;
+            req.session.stage = 'logged_in';
+            await req.session.save();
+
+            return res.redirect(302, '/api/v1/profile');
         } catch (error) {
             next(error);
         }
@@ -51,7 +71,11 @@ const authController = {
     async loginMultipleCredsPerRequest(req, res, next) {
         try {
             const result = await authService.loginMultipleCredsPerRequest(req.body, req.ip, req.useragent);
-            return successResponse(res, result, 'Login successful');
+            req.session.userId = result.id;
+            req.session.stage = 'logged_in';
+            await req.session.save();
+
+            return res.redirect(302, '/api/v1/profile');
         } catch (error) {
             next(error);
         }
@@ -60,12 +84,31 @@ const authController = {
     async login2FASimpleBypass(req, res, next) {
         try {
             const result = await authService.login2FASimpleBypass(req.body);
-            return successResponse(res, result, 'Login successful');
+
+            req.session.userId = result.id;
+            req.session.stage = 'logged_in';
+            await req.session.save();
+
+            return res.redirect(302, '/api/v1/profile');
         } catch (error) {
             next(error);
         }
     },
 
+    async verify2WOtp(req, res, next) {
+        try {
+            const { otp } = req.body;
+            const userId = req.session.userId;
+            const result = await authService.verify2WOtp(userId, otp);
+
+            req.session.stage = 'logged_in';
+            await req.session.save();
+
+            return res.redirect(302, '/api/v1/profile');
+        } catch (error) {
+            next(error);
+        }
+    }
 };
 
 module.exports = authController;

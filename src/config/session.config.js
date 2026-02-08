@@ -1,5 +1,5 @@
 require('dotenv').config({ path: require('path').resolve(__dirname, '../../.env') });
-const { redisStore } = require('./redis');
+const { redisStore } = require('./redis.config');
 const session = require('express-session');
 
 module.exports = session({
