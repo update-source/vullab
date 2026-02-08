@@ -16,7 +16,11 @@ const authController = {
     async loginEnumDifferentFix(req, res, next) {
         try {
             const user = await authService.loginSecure(req.body);
-            return successResponse(res, user, 'Login successful');
+            req.session.userId = user.id;
+            req.session.stage = 'logged_in';
+            await req.session.save();
+
+            return res.redirect(302, '/api/v1/profile');
         } catch (error) {
             next(error);
         }
@@ -25,7 +29,11 @@ const authController = {
     async loginEnumSubtleFix(req, res, next) {
         try {
             const user = await authService.loginSecure(req.body);
-            return successResponse(res, user, 'Login successful');
+            req.session.userId = user.id;
+            req.session.stage = 'logged_in';
+            await req.session.save();
+
+            return res.redirect(302, '/api/v1/profile');
         } catch (error) {
             next(error);
         }
@@ -34,7 +42,11 @@ const authController = {
     async loginEnumTimingFix(req, res, next) {
         try {
             const user = await authService.loginSecure(req.body);
-            return successResponse(res, user, 'Login successful');
+            req.session.userId = user.id;
+            req.session.stage = 'logged_in';
+            await req.session.save();
+
+            return res.redirect(302, '/api/v1/profile');
         } catch (error) {
             next(error);
         }
@@ -43,7 +55,11 @@ const authController = {
     async loginSecureIpBlock(req, res, next) {
         try {
             const user = await authService.loginSecureIpBlock(req.body, req.ip, req.useragent); // Reverse proxy is not exist in this case so i used req.ip
-            return successResponse(res, user, 'Login successful');
+            req.session.userId = user.id;
+            req.session.stage = 'logged_in';
+            await req.session.save();
+
+            return res.redirect(302, '/api/v1/profile');
         } catch (error) {
             next(error);
         }
@@ -52,7 +68,11 @@ const authController = {
     async loginSecureAccountLock(req, res, next) {
         try {
             const user = await authService.loginSecureAccountLock(req.body);
-            return successResponse(res, user, 'Login successful');
+            req.session.userId = user.id;
+            req.session.stage = 'logged_in';
+            await req.session.save();
+
+            return res.redirect(302, '/api/v1/profile');
         } catch (error) {
             next(error);
         }
@@ -61,7 +81,11 @@ const authController = {
     async loginSecureMultipleCredsPerRequest(req, res, next) {
         try {
             const user = await authService.loginSecureMultipleCredsPerRequest(req.body, req.ip, req.useragent); // Reverse proxy is not exist in this case so i used req.ip
-            return successResponse(res, user, 'Login successful');
+            req.session.userId = user.id;
+            req.session.stage = 'logged_in';
+            await req.session.save();
+
+            return res.redirect(302, '/api/v1/profile');
         } catch (error) {
             next(error);
         }
@@ -81,7 +105,11 @@ const authController = {
     async loginSecureIpLocAccountTracking(req, res, next) {
         try {
             const user = await authService.loginSecureIpLocAccountTracking(req.body, req.ip, req.useragent); // Reverse proxy is not exist in this case so i used req.ip
-            return successResponse(res, user, 'Login successful');
+            req.session.userId = user.id;
+            req.session.stage = 'logged_in';
+            await req.session.save();
+            
+            return res.redirect(302, '/api/v1/profile');
         } catch (error) {
             next(error);
         }
