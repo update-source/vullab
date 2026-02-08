@@ -1,10 +1,15 @@
 
 const successResponse = (res, data, message = 'Success', statusCode = 200) => {
-    return res.status(statusCode).json({
+    const payload = {
         success: true,
         message,
-        data
-    });
+    }
+
+    if (data !== null && data !== undefined) {
+        payload.data = data;
+    }
+    // I dont want to include data field when data is null or undefined
+    return res.status(statusCode).json(payload);
 };
 
 const errorResponse = (res, statusCode, message, errors = []) => {

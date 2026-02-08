@@ -1,6 +1,6 @@
 const { authService } = require('../../services/v2');
 const { successResponse } = require('../../utils/response');
-
+const AppError = require('../../utils/AppError');
 const authController = {
 
     async register(req, res, next) {
@@ -87,6 +87,37 @@ const authController = {
         }
     },
 
+    async loginSecure2FASimpleBypass(req, res, next) {
+        try {
+            const result = await authService.loginSecure2FASimpleBypass(req.body);
+
+            req.session.userId = result.id;
+            req.session.stage = 'pending'; // Fixed: Set stage to 'pending' until OTP is verified
+            await req.session.save();
+
+            //return res.redirect(302, '/api/v1/profile');
+            //Cause i haven't created the otp verification page yet so instead of redirecting user to otp verification page i just send success response
+            return successResponse(res, null, 'We have sent an OTP to your registered email. Please verify to complete login.');
+        } catch (error) {
+            next(error);
+        }
+    },
+
+    async verify2WOtp(req, res, next) {
+        try {
+            const { otp } = req.body;
+            const userId = req.session.userId;
+            const result = await authService.verify2WOtp(userId, otp);
+
+            req.session.stage = 'logged_in';
+            await req.session.save();
+
+            return res.redirect(302, '/api/v1/profile');
+        } catch (error) {
+            next(error);
+        }
+    }
 };
+
 
 module.exports = authController;

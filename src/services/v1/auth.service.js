@@ -1,6 +1,6 @@
 // V1 Service - Will contain vulnerable logic
 const { User, LoginAttempt, UserSecurityLog } = require('../../models');
-const { Op } = require('sequelize');
+const { Op, INTEGER } = require('sequelize');
 const bcrypt = require('bcryptjs');
 const AppError = require('../../utils/AppError');
 const { redisClient } = require('../../config/redis.config');
@@ -338,7 +338,7 @@ const authService = {
             throw new AppError(400, 'OTP has expired');
         }
 
-        if (otp !== storedOtp) {
+        if (otp !== Number(storedOtp)) {
             throw new AppError(400, 'Invalid OTP');
         }
 

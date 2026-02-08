@@ -1,6 +1,8 @@
 const { User, LoginAttempt, UserSecurityLog } = require('../../models');
 const { Op } = require('sequelize');
 const bcrypt = require('bcryptjs');
+const crypto = require('crypto');
+const { redisClient } = require('../../config/redis.config');
 const AppError = require('../../utils/AppError');
 
 const authService = {
@@ -429,6 +431,61 @@ const authService = {
             username: existedUser.username,
             email: existedUser.email,
             createdAt: existedUser.createdAt
+        };
+    },
+
+    async loginSecure2FASimpleBypass(data) {
+        const { username, password } = data;
+        const existedUser = await User.findOne({ where: { username: username } });
+
+        const dummyHash = '$2a$10$abcdefghijklmnopqrstuvwxyzABC';
+        const targetHash = existedUser ? existedUser.password : dummyHash;
+
+        const isMatch = await bcrypt.compare(password, targetHash);
+
+        if (!existedUser || !isMatch) {
+            throw new AppError(401, "Invalid username or password");
+        }
+
+        if (!existedUser.isEmailVerified) {
+            throw new AppError(403, "Please verify your email before logging in.");
+        }
+
+        const otp = crypto.randomInt(100000, 999999);
+        const key = `otp:${existedUser.id}`;
+
+        await redisClient.set(key, otp, { EX: 60 });
+
+        return {
+            id: existedUser.id,
+            username: existedUser.username,
+            email: existedUser.email
+        };
+    },
+
+    async verify2WOtp(userId, otp) {
+        const storedOtp = await redisClient.get(`otp:${userId}`);
+
+        if (!storedOtp) {
+            throw new AppError(400, 'OTP has expired');
+        }
+
+        if (otp !== Number(storedOtp)) {
+            throw new AppError(400, 'Invalid OTP');
+        }
+
+        const user = await User.findByPk(userId);
+        if (!user) {
+            throw new AppError(404, 'User not found');
+        }
+
+        await redisClient.del(`otp:${userId}`);
+
+        return {
+            id: user.id,
+            username: user.username,
+            email: user.email,
+            createdAt: user.createdAt
         };
     },
 };

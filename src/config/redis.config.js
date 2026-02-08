@@ -18,13 +18,17 @@ const redisClient = createClient({
     password: process.env.REDIS_PASSWORD || undefined,
 });
 
+redisClient.on('error', (err) => {
+    console.error('❌ Redis client error:', err);
+});
+
 const connectRedis = async () => {
     try {
         if (!redisClient.isOpen) {
             await redisClient.connect();
         }
     } catch (err) {
-        console.error('❌ Failed to connect to Redis:', err.message);
+        console.error('❌ Failed to connect to Redis:', err);
         throw err;
     }
 };

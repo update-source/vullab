@@ -49,7 +49,16 @@ const loginRules = [
         .isLength({ min: 8 }).withMessage('Password must be at least 8 characters'),
 ];
 
+const otpRules = [
+    body('otp')
+        .exists().withMessage('OTP is required')
+        .isLength({ min: 6, max: 6 }).withMessage('OTP must be 6 digits')
+    .isNumeric().withMessage('OTP must contain only numbers')
+    .toInt()
+];
+
 module.exports = {
     registerRules,
-    loginRules
+    loginRules,
+    otpRules
 };

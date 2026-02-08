@@ -7,6 +7,9 @@
     "start": "node src/app.js",
     "dev": "nodemon app.js",
     "build:css": "node ./build-css.js",
+    "db:redis": "docker compose up -d redis",
+    "db:redis:down": "docker compose down",
+    "db:redis:logs": "docker compose logs -f redis",
     "db:sync": "node scripts/sync-database.js --force",
     "db:sync:safe": "node scripts/sync-database.js --alter",
     "db:sync:create": "node scripts/sync-database.js"
