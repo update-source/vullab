@@ -13,6 +13,9 @@ const { otpRules,
  *   post:
  *     tags: [V2 - Authentication (Secure)]
  *     summary: Register a new user
+ *     description: |
+ *       Register a new user account. Since SMTP is not configured, you can set 
+ *       `isEmailVerified: true` to bypass email verification for testing.
  *     requestBody:
  *       required: true
  *       content:
@@ -141,6 +144,7 @@ router.post('/brute-force/multiple-credentials-per-request', loginRules, handleV
  *   post:
  *     tags: [V2 - Authentication (Secure)]
  *     summary: Secure 2FA login (no bypass)
+ *     description: After this step, call /api/v2/auth/2FA/verify-otp with the OTP.
  *     requestBody:
  *       required: true
  *       content:
@@ -159,6 +163,7 @@ router.post('/2FA/simple-bypass', loginRules, handleValidation, authController.l
  *   post:
  *     tags: [V2 - Authentication (Secure)]
  *     summary: Verify OTP code (secure)
+ *     description: Call this after /api/v2/auth/2FA/simple-bypass to complete login.
  *     security:
  *       - cookieAuth: []
  *     requestBody:

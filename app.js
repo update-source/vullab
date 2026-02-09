@@ -1,6 +1,7 @@
 const express = require('express');
 const session = require('./src/config/session.config');
 const { connectRedis } = require('./src/config/redis.config');
+const cookieParser = require('cookie-parser');
 const app = express();
 const port = 3000;
 const useragent = require('express-useragent');
@@ -11,6 +12,7 @@ app.use(express.static('public'))
 app.set('view engine', 'pug');
 app.set('views', 'views');
 
+app.use(cookieParser());
 app.use(useragent.express())
 app.use(session);
 app.use(express.json());

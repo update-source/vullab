@@ -71,6 +71,12 @@ const options = {
                             example: 'SecurePass123!',
                             description: 'Must contain at least 8 characters with uppercase, lowercase, number and symbol',
                         },
+                        isEmailVerified: {
+                            type: 'boolean',
+                            default: false,
+                            example: true,
+                            description: 'Set to true to bypass email verification (for testing without SMTP)',
+                        },
                     },
                 },
                 ErrorResponse: {
