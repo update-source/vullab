@@ -105,15 +105,63 @@ router.post('/brute-force/broken-ip-block', loginRules, handleValidation, authCo
  *   post:
  *     tags: [V1 - Authentication (Vulnerable)]
  *     summary: Login accepting multiple credentials per request
+ *     description: |
+ *       This endpoint has a critical vulnerability that allows brute-forcing multiple passwords in a single request.
+ *       
+ *       **Vulnerability:** The password field accepts both string and array of strings. Validation doesn't reject arrays.
+ *       
+ *       **Normal request (1 password):**
+ *       ```json
+ *       {
+ *         "username": "carlos",
+ *         "password": "Password123!"
+ *       }
+ *       ```
+ *       
+ *       **Exploit request (100 passwords in 1 request):**
+ *       ```json
+ *       {
+ *         "username": "carlos", 
+ *         "password": [
+ *           "password123",
+ *           "admin123",
+ *           "Pass@123",
+ *           "Secret123!",
+ *           "..."
+ *         ]
+ *       }
+ *       ```
+ *       
+ *       **Impact:** Bypasses rate limiting since it counts as 1 attempt, not 100. The server will try each 
+ *       password in the array until finding a match.
  *     requestBody:
  *       required: true
  *       content:
  *         application/json:
  *           schema:
- *             $ref: '#/components/schemas/LoginRequest'
+ *             type: object
+ *             properties:
+ *               username:
+ *                 type: string
+ *                 example: "carlos"
+ *               password:
+ *                 oneOf:
+ *                   - type: string
+ *                     example: "Password123!"
+ *                   - type: array
+ *                     items:
+ *                       type: string
+ *                     example: ["password123", "admin123", "Pass@123", "Secret123!", "test1234"]
+ *             required:
+ *               - username
+ *               - password
  *     responses:
  *       302:
- *         description: Redirect to profile on success
+ *         description: Redirect to profile on success (password matched)
+ *       401:
+ *         description: Invalid credentials (none of the passwords matched)
+ *       429:
+ *         description: Too many failed attempts from this IP
  */
 router.post('/brute-force/multiple-credentials-per-request', loginRules, handleValidation, authController.loginMultipleCredsPerRequest);
 
