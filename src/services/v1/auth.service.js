@@ -360,7 +360,7 @@ const authService = {
         };
     },
 
-    async verify2WOtp(userId, otp) {
+    async verify2FAOtp(userId, otp) {
         const storedOtp = await redisClient.get(`otp:${userId}`);
 
         if (!storedOtp) {
@@ -386,7 +386,7 @@ const authService = {
         };
     },
 
-    async brokenVerify2WOtp(username, otp) {
+    async brokenVerify2FAOtp(username, otp) {
         const storedOtp = await redisClient.get(`otp:${username}`);
 
         if (!storedOtp) {

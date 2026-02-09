@@ -159,6 +159,36 @@ router.post('/2FA/simple-bypass', loginRules, handleValidation, authController.l
 
 /**
  * @swagger
+ * /api/v2/auth/2FA/broken-logic:
+ *   post:
+ *     tags: [V2 - Authentication (Secure)]
+ *     summary: Secure 2FA login (fixed broken logic)
+ *     description: |
+ *       This is the secure version of the broken-logic endpoint. OTP is properly tied to the 
+ *       authenticated session, not a manipulable cookie.
+ *       
+ *       **Security fixes:**
+ *       1. OTP is generated based on session userId, not cookie
+ *       2. Session regeneration prevents session fixation
+ *       3. OTP attempts are tracked and limited
+ *       
+ *       After this step, call /api/v2/auth/2FA/broken-verify-otp with the OTP.
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         application/json:
+ *           schema:
+ *             $ref: '#/components/schemas/LoginRequest'
+ *     responses:
+ *       200:
+ *         description: OTP sent to email
+ *       401:
+ *         description: Invalid credentials
+ */
+router.post('/2FA/broken-logic', loginRules, handleValidation, authController.loginSecure2FABrokenLogic);
+
+/**
+ * @swagger
  * /api/v2/auth/2FA/verify-otp:
  *   post:
  *     tags: [V2 - Authentication (Secure)]
@@ -176,7 +206,42 @@ router.post('/2FA/simple-bypass', loginRules, handleValidation, authController.l
  *       302:
  *         description: Redirect to profile on success
  */
-router.post('/2FA/verify-otp', requirePendingOtpSession, otpRules, handleValidation, authController.verify2WOtp);
+router.post('/2FA/verify-otp', requirePendingOtpSession, otpRules, handleValidation, authController.verifySecure2FAOtp);
+
+/**
+ * @swagger
+ * /api/v2/auth/2FA/broken-verify-otp:
+ *   post:
+ *     tags: [V2 - Authentication (Secure)]
+ *     summary: Verify OTP with secure implementation (fixed broken logic)
+ *     description: |
+ *       This is the secure version of the broken-verify-otp endpoint. The user identity 
+ *       is properly determined from the session, not from a manipulable cookie.
+ *       
+ *       **Security fixes:**
+ *       1. User identity taken from session userId, not cookie
+ *       2. OTP attempts are tracked and limited (max 3 attempts)
+ *       3. Session regeneration after successful verification
+ *       4. Proper session cleanup on max attempts exceeded
+ *       
+ *       **Usage:** Send OTP in request body with valid session.
+ *     security:
+ *       - cookieAuth: []
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         application/json:
+ *           schema:
+ *             $ref: '#/components/schemas/OTPRequest'
+ *     responses:
+ *       302:
+ *         description: Redirect to profile on success
+ *       400:
+ *         description: Invalid OTP
+ *       403:
+ *         description: Maximum OTP attempts exceeded
+ */
+router.post('/2FA/broken-verify-otp', requirePendingOtpSession, otpRules, handleValidation, authController.brokenSecureVerify2FAOtp);
 
 /**
  * @swagger

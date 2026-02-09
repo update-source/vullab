@@ -207,7 +207,7 @@ router.post('/2FA/broken-logic', loginRules, handleValidation, authController.lo
  *       401:
  *         description: Invalid OTP
  */
-router.post('/2FA/verify-otp', requirePendingOtpSession, otpRules, handleValidation, authController.verify2WOtp);
+router.post('/2FA/verify-otp', requirePendingOtpSession, otpRules, handleValidation, authController.verify2FAOtp);
 
 /**
  * @swagger
@@ -234,7 +234,7 @@ router.post('/2FA/verify-otp', requirePendingOtpSession, otpRules, handleValidat
  *       400:
  *         description: Invalid OTP or missing verify cookie
  */
-router.post('/2FA/broken-verify-otp', otpRules, handleValidation, authController.brokenVerify2WOtp);
+router.post('/2FA/broken-verify-otp', otpRules, handleValidation, authController.brokenVerify2FAOtp);
 
 /**
  * @swagger

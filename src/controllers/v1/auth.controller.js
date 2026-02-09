@@ -167,11 +167,11 @@ const authController = {
     // Todo(Done): Write version 2 function, function has a vulnerability same ideal as login2FASimpleBypass
     // But this time the vulnerability occurred in the requireAuthSession middleware, it doesn't check the stage. It only checks the user ID in the session
     // requireAuthSessionIgnoreStage at auth-session.middleware.js
-    async verify2WOtp(req, res, next) {
+    async verify2FAOtp(req, res, next) {
         try {
             const { otp } = req.body;
             const userId = req.session.userId;
-            const result = await authService.verify2WOtp(userId, otp);
+            const result = await authService.verify2FAOtp(userId, otp);
 
             const oldUserId = req.session.userId;
             await regenerateSession(req.session);
@@ -186,14 +186,14 @@ const authController = {
         }
     },
 
-    async brokenVerify2WOtp(req, res, next) {
+    async brokenVerify2FAOtp(req, res, next) {
         try {
             const { otp } = req.body;
             const username = req.cookies.verify; // Vulnerable: relying on "verify cookie" to identify user
             if (!username) {
                 throw new AppError(400, 'Verification cookie is missing');
             }
-            const result = await authService.brokenVerify2WOtp(username, otp);
+            const result = await authService.brokenVerify2FAOtp(username, otp);
             const userId = result.id;
 
             await regenerateSession(req.session);

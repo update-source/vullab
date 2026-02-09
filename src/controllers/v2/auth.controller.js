@@ -141,12 +141,72 @@ const authController = {
         }
     },
 
-    async verify2WOtp(req, res, next) {
+    async loginSecure2FABrokenLogic(req, res, next) {
         try {
+            const result = await authService.loginSecure2FABrokenLogic(req.body);
+
+            await regenerateSession(req.session);
+
+            req.session.userId = result.id;
+            req.session.stage = 'pending';
+            req.session.otpAttempt = 0; // enhancement to track OTP attempts
+            await req.session.save();
+
+            return successResponse(res, null, 'We have sent an OTP to your registered email. Please verify to complete login.');
+        } catch (error) {
+            next(error);
+        }
+    },
+
+    async verifySecure2FAOtp(req, res, next) {
+        try {
+            const MAX_OTP_ATTEMPTS = 3;
+
+            if (req.session.otpAttempt >= MAX_OTP_ATTEMPTS) {
+                await destroySession(req.session);
+                throw new AppError(403, 'Maximum OTP attempts exceeded. Please login again.');
+            }
             const { otp } = req.body;
             const userId = req.session.userId;
-            const result = await authService.verify2WOtp(userId, otp);
+            try {
+                const result = await authService.verifySecure2FAOtp(userId, otp);
+            } catch (error) {
+                req.session.otpAttempt = (req.session.otpAttempt || 0) + 1;
+                await req.session.save();
+                throw error;
+            }
 
+            const oldUserId = req.session.userId;
+            await regenerateSession(req.session);
+
+            req.session.userId = oldUserId;
+            req.session.stage = 'logged_in';
+            await req.session.save();
+
+            return res.redirect(302, '/api/v1/profile');
+        } catch (error) {
+            next(error);
+        }
+    },
+
+    async brokenSecureVerify2FAOtp(req, res, next) {
+        try {
+            const MAX_OTP_ATTEMPTS = 3;
+
+            if (req.session.otpAttempt >= MAX_OTP_ATTEMPTS) {
+                await destroySession(req.session);
+                throw new AppError(403, 'Maximum OTP attempts exceeded. Please login again.');
+            }
+            const { otp } = req.body;
+            const userId = req.session.userId;
+            try {
+                const result = await authService.brokenSecureVerify2FAOtp(userId, otp);
+            } catch (error) {
+                req.session.otpAttempt = (req.session.otpAttempt || 0) + 1;
+                await req.session.save();
+                throw error;
+            }
+            
             const oldUserId = req.session.userId;
             await regenerateSession(req.session);
 
