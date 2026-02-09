@@ -454,7 +454,7 @@ const authService = {
         const otp = crypto.randomInt(100000, 999999);
         const key = `otp:${existedUser.id}`;
 
-        await redisClient.set(key, otp, { EX: 60 });
+        await redisClient.set(key, otp, { EX: 60 }); // 60
 
         return {
             id: existedUser.id,

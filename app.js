@@ -4,6 +4,8 @@ const { connectRedis } = require('./src/config/redis.config');
 const app = express();
 const port = 3000;
 const useragent = require('express-useragent');
+const swaggerUi = require('swagger-ui-express');
+const swaggerSpecs = require('./src/config/swagger.config');
 
 app.use(express.static('public'))
 app.set('view engine', 'pug');
@@ -13,6 +15,12 @@ app.use(useragent.express())
 app.use(session);
 app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
+
+// Swagger UI
+app.use('/api-docs', swaggerUi.serve, swaggerUi.setup(swaggerSpecs, {
+    customCss: '.swagger-ui .topbar { display: none }',
+    customSiteTitle: 'VulLab API Docs'
+}));
 
 // Routes
 const routes = require('./src/routes');

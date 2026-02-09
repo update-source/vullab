@@ -1,11 +1,14 @@
 const { authService } = require('../../services/v1');
 const { successResponse } = require('../../utils/response');
-
+const { regenerateSession, destroySession } = require('../../utils/session');
 const authController = {
 
     async loginEnumDifferent(req, res, next) {
         try {
             const result = await authService.loginEnumDifferent(req.body);
+         
+            await regenerateSession(req.session);
+            
             req.session.userId = result.id;
             req.session.stage = 'logged_in';
             await req.session.save();
@@ -19,6 +22,9 @@ const authController = {
     async loginEnumSubtle(req, res, next) {
         try {
             const result = await authService.loginEnumSubtle(req.body);
+            
+            await regenerateSession(req.session);
+            
             req.session.userId = result.id;
             req.session.stage = 'logged_in';
             await req.session.save();
@@ -32,6 +38,9 @@ const authController = {
     async loginEnumTiming(req, res, next) {
         try {
             const result = await authService.loginEnumTiming(req.body);
+            
+            await regenerateSession(req.session);
+            
             req.session.userId = result.id;
             req.session.stage = 'logged_in';
             await req.session.save();
@@ -45,6 +54,9 @@ const authController = {
     async loginBrokenIpBlock(req, res, next) {
         try {
             const result = await authService.loginBrokenIpBlock(req.body, req.ip, req.useragent);
+            
+            await regenerateSession(req.session);
+            
             req.session.userId = result.id;
             req.session.stage = 'logged_in';
             await req.session.save();
@@ -58,6 +70,9 @@ const authController = {
     async loginEnumViaAccountLock(req, res, next) {
         try {
             const result = await authService.loginEnumViaAccountLock(req.body);
+            
+            await regenerateSession(req.session);
+            
             req.session.userId = result.id;
             req.session.stage = 'logged_in';
             await req.session.save();
@@ -71,6 +86,9 @@ const authController = {
     async loginMultipleCredsPerRequest(req, res, next) {
         try {
             const result = await authService.loginMultipleCredsPerRequest(req.body, req.ip, req.useragent);
+            
+            await regenerateSession(req.session);
+            
             req.session.userId = result.id;
             req.session.stage = 'logged_in';
             await req.session.save();
@@ -85,6 +103,8 @@ const authController = {
         try {
             const result = await authService.login2FASimpleBypass(req.body);
             // This vulnerability occurs when the stage is assigned login before performing the OTP verification step.
+            await regenerateSession(req.session);
+            
             req.session.userId = result.id;
             req.session.stage = 'logged_in'; //vul
             await req.session.save();
@@ -99,6 +119,8 @@ const authController = {
         try {
             const result = await authService.login2FASimpleBypass(req.body);
             // This is ok function it use pending stage but the vun happend in the session middleware
+            await regenerateSession(req.session);
+            
             req.session.userId = result.id;
             req.session.stage = 'pending';
             await req.session.save();
@@ -117,10 +139,24 @@ const authController = {
             const userId = req.session.userId;
             const result = await authService.verify2WOtp(userId, otp);
 
+            const oldUserId = req.session.userId;
+            await regenerateSession(req.session);
+
+            req.session.userId = oldUserId;
             req.session.stage = 'logged_in';
             await req.session.save();
 
             return res.redirect(302, '/api/v1/profile');
+        } catch (error) {
+            next(error);
+        }
+    },
+
+    async logout(req, res, next) {
+        try {
+            await destroySession(req.session);
+            res.clearCookie('session');
+            return successResponse(res, null, 'Logged out successfully');
         } catch (error) {
             next(error);
         }
