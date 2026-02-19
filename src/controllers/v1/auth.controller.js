@@ -9,9 +9,9 @@ const authController = {
     async loginEnumDifferent(req, res, next) {
         try {
             const result = await authService.loginEnumDifferent(req.body);
-         
+
             await regenerateSession(req.session);
-            
+
             req.session.userId = result.id;
             req.session.stage = 'logged_in';
             await req.session.save();
@@ -25,9 +25,9 @@ const authController = {
     async loginEnumSubtle(req, res, next) {
         try {
             const result = await authService.loginEnumSubtle(req.body);
-            
+
             await regenerateSession(req.session);
-            
+
             req.session.userId = result.id;
             req.session.stage = 'logged_in';
             await req.session.save();
@@ -41,9 +41,9 @@ const authController = {
     async loginEnumTiming(req, res, next) {
         try {
             const result = await authService.loginEnumTiming(req.body);
-            
+
             await regenerateSession(req.session);
-            
+
             req.session.userId = result.id;
             req.session.stage = 'logged_in';
             await req.session.save();
@@ -57,9 +57,9 @@ const authController = {
     async loginBrokenIpBlock(req, res, next) {
         try {
             const result = await authService.loginBrokenIpBlock(req.body, req.ip, req.useragent);
-            
+
             await regenerateSession(req.session);
-            
+
             req.session.userId = result.id;
             req.session.stage = 'logged_in';
             await req.session.save();
@@ -73,9 +73,9 @@ const authController = {
     async loginEnumViaAccountLock(req, res, next) {
         try {
             const result = await authService.loginEnumViaAccountLock(req.body);
-            
+
             await regenerateSession(req.session);
-            
+
             req.session.userId = result.id;
             req.session.stage = 'logged_in';
             await req.session.save();
@@ -89,9 +89,9 @@ const authController = {
     async loginMultipleCredsPerRequest(req, res, next) {
         try {
             const result = await authService.loginMultipleCredsPerRequest(req.body, req.ip, req.useragent);
-            
+
             await regenerateSession(req.session);
-            
+
             req.session.userId = result.id;
             req.session.stage = 'logged_in';
             await req.session.save();
@@ -102,12 +102,41 @@ const authController = {
         }
     },
 
+    async loginStayLoggedInCookie(req, res, next) {
+        try {
+            const result = await authService.loginStayLoggedInCookie(req.body);
+
+            await regenerateSession(req.session);
+
+            if (result?.isStayLoggedIn == "on") {
+                const { username, password } = result;
+                const md5HashOfPassword = crypto.createHash('md5').update(password, 'utf-8').digest('hex');
+                const stayLoggedInCookie = Buffer.from(username + ':' + md5HashOfPassword, 'utf-8').toString('base64');
+
+                res.cookie('stay-logged-in', stayLoggedInCookie, {
+                    httpOnly: true,
+                    sameSite: 'lax',
+                    secure: process.env.NODE_ENV === 'production',
+                    maxAge: 5 * 60 * 1000 // 5 mins
+                });
+            }
+
+            req.session.userId = result.id;
+            req.session.stage = 'logged_in';
+            await req.session.save();
+
+            return res.redirect(302, '/api/v1/profile/cookie');
+        } catch (error) {
+            next(error);
+        }
+    },
+
     async login2FASimpleBypass(req, res, next) {
         try {
             const result = await authService.login2FASimpleBypass(req.body);
             // This vulnerability occurs when the stage is assigned login before performing the OTP verification step.
             await regenerateSession(req.session);
-            
+
             req.session.userId = result.id;
             req.session.stage = 'logged_in'; //vul
             await req.session.save();
@@ -123,7 +152,7 @@ const authController = {
             const result = await authService.login2FASimpleBypass(req.body);
             // This is ok function it use pending stage but the vun happend in the session middleware
             await regenerateSession(req.session);
-            
+
             req.session.userId = result.id;
             req.session.stage = 'pending';
             await req.session.save();
@@ -138,9 +167,9 @@ const authController = {
         // Although it still create a pending session, but it make the cookie which is used later during OTP verification 
         try {
             const result = await authService.login2FABrokenLogic(req.body);
-            
+
             await regenerateSession(req.session);
-            
+
             const verifyUser = req.cookies.verify || result.username;
             res.cookie('verify', verifyUser, { // Vulnerable cookie storing username for OTP verification
                 httpOnly: true,
@@ -200,7 +229,7 @@ const authController = {
             req.session.userId = userId;
             req.session.stage = 'logged_in';
             await req.session.save();
-            
+
             return res.redirect(302, '/api/v1/profile');
         } catch (error) {
             next(error);

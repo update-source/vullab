@@ -2,10 +2,10 @@ const express = require('express');
 const router = express.Router();
 const { authController } = require('../../controllers/v1');
 const { otpRules,
-        loginRules, 
-        registerRules, 
-        handleValidation,
-        requirePendingOtpSession } = require('../../middlewares');
+    loginRules,
+    registerRules,
+    handleValidation,
+    requirePendingOtpSession } = require('../../middlewares');
 
 /**
  * @swagger
@@ -164,6 +164,79 @@ router.post('/brute-force/broken-ip-block', loginRules, handleValidation, authCo
  *         description: Too many failed attempts from this IP
  */
 router.post('/brute-force/multiple-credentials-per-request', loginRules, handleValidation, authController.loginMultipleCredsPerRequest);
+
+/**
+ * @swagger
+ * /api/v1/auth/brute-force/stay-logged-in-cookie:
+ *   post:
+ *     tags: [V1 - Authentication (Vulnerable)]
+ *     summary: Login with stay-logged-in cookie (Vulnerable to offline brute-force)
+ *     description: |
+ *       This endpoint implements a "stay logged in" feature that stores user credentials in a cookie.
+ *       
+ *       **Vulnerability:** The cookie contains base64-encoded username + MD5 password hash.
+ *       MD5 is cryptographically broken and can be brute-forced offline.
+ *       
+ *       **How it works:**
+ *       1. User logs in with `isStayLoggedIn: "on"`
+ *       2. Server creates cookie: `base64(username + md5(password))`
+ *       3. Cookie is sent to client with 5-minute expiry
+ *       
+ *       **Cookie format:**
+ *       ```
+ *       stay-logged-in = base64(username + md5_hash)
+ *       Example: dXNlcm5hbWU1ZTEwYWRjOTJiYWQ0Yjk5NmY5YzMzOGQwNWFiZGU4Ng==
+ *       Decoded: username5e10adc92bad4b996f9c338d05abde86
+ *                ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+ *                         32-char MD5 hash
+ *       ```
+ *       
+ *       **Attack scenario:**
+ *       1. Attacker intercepts the cookie
+ *       2. Decodes base64 to get username + MD5 hash
+ *       3. Brute-forces MD5 hash offline (very fast)
+ *       4. Uses cracked password to login
+ *       
+ *       **Why it's vulnerable:**
+ *       - MD5 is fast to compute (millions of hashes/second)
+ *       - No salt used
+ *       - Cookie is not encrypted, just base64 encoded
+ *       - Can be cracked offline without server interaction
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         application/json:
+ *           schema:
+ *             type: object
+ *             properties:
+ *               username:
+ *                 type: string
+ *                 example: "carlos"
+ *               password:
+ *                 type: string
+ *                 example: "Password123!"
+ *               stay-logged-in:
+ *                 type: string
+ *                 enum: ["on", "off"]
+ *                 example: "on"
+ *                 description: Set to "on" to receive stay-logged-in cookie
+ *             required:
+ *               - username
+ *               - password
+ *     responses:
+ *       302:
+ *         description: Login successful, session created
+ *         headers:
+ *           Set-Cookie:
+ *             description: Session cookie and optionally stay-logged-in cookie
+ *             schema:
+ *               type: string
+ *               example: "session=s%3A...; stay-logged-in=dXNlcm5hbWU1ZTEwYWRj..."
+ *       401:
+ *         description: Invalid credentials
+ */
+router.post('/brute-force/stay-logged-in-cookie', loginRules, handleValidation, authController.loginStayLoggedInCookie);
+
 
 /**
  * @swagger

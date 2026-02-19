@@ -40,18 +40,18 @@ app.get('/', (req, res) => {
 // Global Error Handler must be the last middleware
 app.use(errorHandler);
 
-// Start server with Redis connection
+// Start server
 const startServer = async () => {
     try {
-        await connectRedis();
-
+        // Redis connects automatically when redis.config.js is loaded
         app.listen(port, () => {
-            console.log(`Server đang chạy tại http://localhost:${port}`);
+            console.log(`🚀 Server running at http://localhost:${port}`);
+            console.log(`📚 API Docs available at http://localhost:${port}/api-docs`);
         });
     } catch (err) {
         console.error('❌ Failed to start server:', err.message);
+        process.exit(1);
     }
 };
-
 
 startServer();

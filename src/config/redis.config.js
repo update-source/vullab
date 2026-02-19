@@ -8,10 +8,11 @@ const redisClient = createClient({
         port: parseInt(process.env.REDIS_PORT) || 6379,
         reconnectStrategy: (retries) => {
             if (retries > 10) {
+                console.error('❌ Redis: Too many reconnection attempts, giving up');
                 return new Error('Too many retries');
             }
             const delay = Math.min(retries * 50, 2000);
-            console.log(`Reconnecting in ${delay}ms (attempt ${retries})`);
+            console.log(`🔄 Redis reconnecting in ${delay}ms (attempt ${retries})`);
             return delay;
         },
     },
@@ -19,16 +20,30 @@ const redisClient = createClient({
 });
 
 redisClient.on('error', (err) => {
-    console.error('❌ Redis client error:', err);
+    console.error('❌ Redis client error:', err.message);
+});
+
+redisClient.on('connect', () => {
+    console.log('✅ Redis client connected');
+});
+
+redisClient.on('ready', () => {
+    console.log('✅ Redis client ready');
+});
+
+// Connect immediately when module loads
+redisClient.connect().catch((err) => {
+    console.error('❌ Failed to connect to Redis on startup:', err.message);
 });
 
 const connectRedis = async () => {
     try {
         if (!redisClient.isOpen) {
             await redisClient.connect();
+            console.log('✅ Redis connected successfully');
         }
     } catch (err) {
-        console.error('❌ Failed to connect to Redis:', err);
+        console.error('❌ Failed to connect to Redis:', err.message);
         throw err;
     }
 };

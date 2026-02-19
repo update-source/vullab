@@ -302,6 +302,28 @@ const authService = {
         };
     },
 
+    async loginStayLoggedInCookie(data) {
+        const { username, password, 'stay-logged-in': isStayLoggedIn} = data;
+        const existedUser = await User.findOne({ where: { username: username } });
+
+        const dummyHash = '$2a$10$abcdefghijklmnopqrstuvwxyzABC';
+        const targetHash = existedUser ? existedUser.password : dummyHash;
+
+        const isMatch = await bcrypt.compare(password, targetHash);
+
+        if (!existedUser || !isMatch) {
+            throw new AppError(401, "Invalid username or password");
+        }
+
+        return {
+            id: existedUser.id,
+            username: existedUser.username,
+            password: existedUser.password, // return password to create StayLoggedIn cookie
+            email: existedUser.email,
+            isStayLoggedIn: isStayLoggedIn
+        };
+    },
+
     async login2FASimpleBypass(data) {
         const { username, password } = data;
         const existedUser = await User.findOne({ where: { username: username } });
