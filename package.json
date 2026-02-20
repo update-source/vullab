@@ -5,6 +5,7 @@
   "main": "index.js",
   "scripts": {
     "start": "node src/app.js",
+    "predev": "node scripts/sync-database.js",
     "dev": "nodemon app.js",
     "build:css": "node ./build-css.js",
     "db:redis": "docker compose up -d redis",

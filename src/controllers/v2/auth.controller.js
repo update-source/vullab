@@ -3,6 +3,7 @@ const { successResponse } = require('../../utils/response');
 const AppError = require('../../utils/AppError');
 const { regenerateSession, destroySession } = require('../../utils/session');
 const { AuthToken } = require('../../models');
+const crypto = require('crypto');
 const authController = {
 
     async register(req, res, next) {
@@ -18,9 +19,9 @@ const authController = {
     async loginEnumDifferentFix(req, res, next) {
         try {
             const user = await authService.loginSecure(req.body);
-            
+
             await regenerateSession(req.session);
-            
+
             req.session.userId = user.id;
             req.session.stage = 'logged_in';
             await req.session.save();
@@ -34,9 +35,9 @@ const authController = {
     async loginEnumSubtleFix(req, res, next) {
         try {
             const user = await authService.loginSecure(req.body);
-            
+
             await regenerateSession(req.session);
-            
+
             req.session.userId = user.id;
             req.session.stage = 'logged_in';
             await req.session.save();
@@ -50,9 +51,9 @@ const authController = {
     async loginEnumTimingFix(req, res, next) {
         try {
             const user = await authService.loginSecure(req.body);
-            
+
             await regenerateSession(req.session);
-            
+
             req.session.userId = user.id;
             req.session.stage = 'logged_in';
             await req.session.save();
@@ -66,9 +67,9 @@ const authController = {
     async loginSecureIpBlock(req, res, next) {
         try {
             const user = await authService.loginSecureIpBlock(req.body, req.ip, req.useragent);
-            
+
             await regenerateSession(req.session);
-            
+
             req.session.userId = user.id;
             req.session.stage = 'logged_in';
             await req.session.save();
@@ -82,9 +83,9 @@ const authController = {
     async loginSecureAccountLock(req, res, next) {
         try {
             const user = await authService.loginSecureAccountLock(req.body);
-            
+
             await regenerateSession(req.session);
-            
+
             req.session.userId = user.id;
             req.session.stage = 'logged_in';
             await req.session.save();
@@ -98,9 +99,9 @@ const authController = {
     async loginSecureMultipleCredsPerRequest(req, res, next) {
         try {
             const user = await authService.loginSecureMultipleCredsPerRequest(req.body, req.ip, req.useragent);
-            
+
             await regenerateSession(req.session);
-            
+
             req.session.userId = user.id;
             req.session.stage = 'logged_in';
             await req.session.save();
@@ -113,13 +114,13 @@ const authController = {
     async loginSecureIpLocAccountTracking(req, res, next) {
         try {
             const user = await authService.loginSecureIpLocAccountTracking(req.body, req.ip, req.useragent);
-            
+
             await regenerateSession(req.session);
-            
+
             req.session.userId = user.id;
             req.session.stage = 'logged_in';
             await req.session.save();
-            
+
             return res.redirect(302, '/api/v2/profile');
         } catch (error) {
             next(error);
@@ -207,7 +208,7 @@ const authController = {
                 await req.session.save();
                 throw error;
             }
-            
+
             const oldUserId = req.session.userId;
             await regenerateSession(req.session);
 
@@ -242,7 +243,7 @@ const authController = {
                     ipAddress: req.ip,
                     userAgent: req.useragent?.source
                 })
-                
+
                 const stayLoggedInCookie = selector + ':' + validator;
 
                 res.cookie('stay-logged-in', stayLoggedInCookie, {

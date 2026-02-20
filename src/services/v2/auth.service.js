@@ -1,4 +1,4 @@
-const { User, LoginAttempt, UserSecurityLog } = require('../../models');
+const { User, LoginAttempt, UserSecurityLog, AuthToken } = require('../../models');
 const { Op } = require('sequelize');
 const bcrypt = require('bcryptjs');
 const crypto = require('crypto');

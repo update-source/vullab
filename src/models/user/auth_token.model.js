@@ -23,9 +23,8 @@ AuthToken.init({
     },
 
     selector: {
-        type: DataTypes.CHAR(12),
+        type: DataTypes.CHAR(16),
         allowNull: false,
-        unique: true,
         comment: 'Public part of the token stored in cookie. Used to find the DB row.'
     },
 

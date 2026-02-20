@@ -1,6 +1,6 @@
 const { sequelize, DataTypes, Model } = require('../../config/database.config');
 
-class LoginAttempt extends Model {}
+class LoginAttempt extends Model { }
 
 LoginAttempt.init({
     id: {
@@ -11,7 +11,6 @@ LoginAttempt.init({
     ipAddress: {
         type: DataTypes.STRING(45),
         allowNull: false,
-        unique: true,
         comment: 'IP address attempting to login'
     },
     attemptCount: {
@@ -39,7 +38,10 @@ LoginAttempt.init({
     sequelize,
     tableName: 'login_attempt',
     underscored: true,
-    timestamps: true
+    timestamps: true,
+    indexes: [
+        { unique: true, fields: ['ip_address'] }
+    ]
 });
 
 module.exports = { LoginAttempt };
