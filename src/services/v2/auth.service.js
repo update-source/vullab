@@ -434,6 +434,59 @@ const authService = {
         };
     },
 
+    async loginSecureStayLoggedInCookie(data) {
+        const { username, password, 'stay-logged-in': isStayLoggedIn} = data;
+        const existedUser = await User.findOne({ where: { username: username } });
+
+        const dummyHash = '$2a$10$abcdefghijklmnopqrstuvwxyzABC';
+        const targetHash = existedUser ? existedUser.password : dummyHash;
+
+        const isMatch = await bcrypt.compare(password, targetHash);
+
+        if (!existedUser || !isMatch) {
+            throw new AppError(401, "Invalid username or password");
+        }
+
+        return {
+            id: existedUser.id,
+            username: existedUser.username,
+            email: existedUser.email,
+            isStayLoggedIn: isStayLoggedIn
+        };
+    },
+
+    async validateStayLoggedInCookie(cookieValue) {
+        const selector = cookieValue.split(':')[0];
+        const validator = cookieValue.split(':')[1];
+        const hashedValidator = crypto.createHash('sha256').update(validator).digest('hex');
+
+        const existedToken = await AuthToken.findOne({ where: { selector: selector }});
+
+        const dummyHash = 'a'.repeat(64);
+        const dbHash = existedToken?.hashedValidator ?? dummyHash;
+        const isValidatorMatch = crypto.timingSafeEqual(
+            Buffer.from(hashedValidator, 'hex'),
+            Buffer.from(dbHash, 'hex')
+        );
+
+        if (existedToken && !isValidatorMatch) {
+            await AuthToken.destroy({ where: { selector: selector } });
+            throw new AppError(401, 'Invalid or expired remember-me cookie');
+        }
+
+        if (!existedToken) {
+            throw new AppError(401, 'Invalid or expired remember-me cookie');
+        }
+
+        if (existedToken.expiredAt < new Date()) {
+            await AuthToken.destroy({ where: { selector: selector } });
+            throw new AppError(401, 'Invalid or expired remember-me cookie');
+        }
+
+        return existedToken?.userId;
+    },
+    
+
     async loginSecure2FASimpleBypass(data) {
         const { username, password } = data;
         const existedUser = await User.findOne({ where: { username: username } });

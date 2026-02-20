@@ -1,4 +1,6 @@
 const AppError = require('../utils/AppError');
+const { authService: authServiceV2 } = require('../services/v2');
+const { userService: userServiceV1 } = require('../services/v1');
 const requireAuthSession = (req, res, next) => {
     const { session } = req;
     if (!session || session.stage !== 'logged_in' || !session.userId) {
@@ -29,6 +31,31 @@ const requireAuthSessionOrCookie = (req, res, next) => {
     return next();
 };
 
+const resolveCookieByBase64 = async (req, res, next) => {
+    if (!req.authViaCookie) return next();
+    try {
+        const decoded = Buffer.from(req.stayLoggedInCookie, 'base64').toString('utf-8');
+        const username = decoded.split(':')[0];
+        const user = await userServiceV1.getUserByUsername(username);
+        if (!user) return next(new AppError(401, 'Unauthorized'));
+        req.authUserId = user.id;
+        return next();
+    } catch (err) {
+        return next(new AppError(401, 'Unauthorized'));
+    }
+};
+
+const resolveCookieIdentity = async (req, res, next) => {
+    if (!req.authViaCookie) return next();
+    try {
+        const userId = await authServiceV2.validateStayLoggedInCookie(req.stayLoggedInCookie);
+        req.authUserId = userId;
+        return next();
+    } catch (err) {
+        return next(new AppError(401, 'Invalid or expired remember-me cookie'));
+    }
+};
+
 const requirePendingOtpSession = (req, res, next) => {
     const { session } = req;
     if (!session || !session.userId) {
@@ -55,6 +82,8 @@ const requireAuthSessionIgnoreStage = (req, res, next) => {
 module.exports = {
     requireAuthSession,
     requireAuthSessionOrCookie,
+    resolveCookieByBase64,
+    resolveCookieIdentity,
     requirePendingOtpSession,
     requireAuthSessionIgnoreStage,
 };

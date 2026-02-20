@@ -2,10 +2,10 @@ const express = require('express');
 const router = express.Router();
 const { authController } = require('../../controllers/v2');
 const { otpRules,
-        loginRules, 
-        registerRules, 
-        handleValidation,
-        requirePendingOtpSession } = require('../../middlewares');
+    loginRules,
+    registerRules,
+    handleValidation,
+    requirePendingOtpSession } = require('../../middlewares');
 
 /**
  * @swagger
@@ -245,6 +245,63 @@ router.post('/2FA/broken-verify-otp', requirePendingOtpSession, otpRules, handle
 
 /**
  * @swagger
+ * /api/v2/auth/brute-force/stay-logged-in-cookie:
+ *   post:
+ *     tags: [V2 - Authentication (Secure)]
+ *     summary: Login with secure stay-logged-in cookie (selector:validator pattern)
+ *     description: |
+ *       Secure implementation of the "remember me" feature using the `selector:validator` pattern.
+ *
+ *       **How it works:**
+ *       1. User logs in with `stay-logged-in: "on"`
+ *       2. Server generates a random `selector` (16 hex) and `validator` (64 hex)
+ *       3. Only `SHA-256(validator)` is stored in DB — plain validator is never persisted
+ *       4. Cookie is set as `selector:validator` with 30-day expiry
+ *
+ *       **Cookie format:**
+ *       ```
+ *       stay-logged-in = selector:validator
+ *       Example: a1b2c3d4e5f6a7b8:c9d0e1f2...
+ *       ```
+ *
+ *       After login, use `GET /api/v2/profile/cookie` with the issued cookie.
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         application/json:
+ *           schema:
+ *             type: object
+ *             properties:
+ *               username:
+ *                 type: string
+ *                 example: "carlos"
+ *               password:
+ *                 type: string
+ *                 example: "Password123!"
+ *               stay-logged-in:
+ *                 type: string
+ *                 enum: ["on", "off"]
+ *                 example: "on"
+ *                 description: Set to "on" to receive a secure remember-me cookie
+ *             required:
+ *               - username
+ *               - password
+ *     responses:
+ *       302:
+ *         description: Login successful, redirected to /api/v2/profile/cookie
+ *         headers:
+ *           Set-Cookie:
+ *             description: Session cookie and optionally stay-logged-in cookie
+ *             schema:
+ *               type: string
+ *               example: "stay-logged-in=a1b2c3d4e5f6a7b8:c9d0e1f2...; HttpOnly; SameSite=Lax"
+ *       401:
+ *         description: Invalid credentials
+ */
+router.post('/brute-force/stay-logged-in-cookie', loginRules, handleValidation, authController.loginSecureStayLoggedInCookie);
+
+/**
+ * @swagger
  * /api/v2/auth/logout:
  *   post:
  *     tags: [V2 - Authentication (Secure)]
@@ -258,4 +315,3 @@ router.post('/2FA/broken-verify-otp', requirePendingOtpSession, otpRules, handle
 router.post('/logout', authController.logout);
 
 module.exports = router;
-    

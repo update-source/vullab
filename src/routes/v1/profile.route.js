@@ -2,8 +2,9 @@ const express = require('express');
 const router = express.Router();
 const { profileController } = require('../../controllers/v1');
 const { requireAuthSession,
-    requireAuthSessionOrCookie,
-    requireAuthSessionIgnoreStage } = require('../../middlewares');
+        requireAuthSessionOrCookie,
+        requireAuthSessionIgnoreStage,
+        resolveCookieByBase64 } = require('../../middlewares');
 
 /**
  * @swagger
@@ -88,5 +89,5 @@ router.get('/ignored-stage', requireAuthSessionIgnoreStage, profileController.ge
  *                   type: string
  *                   example: Unauthorized
  */
-router.get('/cookie', requireAuthSessionOrCookie, profileController.getProfileFlexible);
+router.get('/cookie', requireAuthSessionOrCookie, resolveCookieByBase64, profileController.getProfile);
 module.exports = router;

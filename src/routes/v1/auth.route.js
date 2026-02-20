@@ -2,10 +2,10 @@ const express = require('express');
 const router = express.Router();
 const { authController } = require('../../controllers/v1');
 const { otpRules,
-    loginRules,
-    registerRules,
-    handleValidation,
-    requirePendingOtpSession } = require('../../middlewares');
+        loginRules,
+        registerRules,
+        handleValidation,
+        requirePendingOtpSession } = require('../../middlewares');
 
 /**
  * @swagger

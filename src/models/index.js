@@ -6,6 +6,7 @@ const { UserToken } = require('./user/user_token.model');
 const { UserSecurityLog } = require('./user/user_security_log.model');
 const { UserSetting } = require('./user/user_setting.model');
 const { LoginAttempt } = require('./user/login-attempt.model');
+const { AuthToken } = require('./user/auth_token.model');
 const { Address } = require('./shared/address.model');
 const { UserAddress } = require('./shared/user_address.model');
 const { Country } = require('./shared/country.model');
@@ -28,6 +29,9 @@ UserProfile.belongsTo(User, { foreignKey: 'userId', as: 'user' });
 
 User.hasMany(UserToken, { foreignKey: 'userId', as: 'tokens' });
 UserToken.belongsTo(User, { foreignKey: 'userId', as: 'user' });
+
+User.hasMany(AuthToken, { foreignKey: 'userId', as: 'authTokens' });
+AuthToken.belongsTo(User, { foreignKey: 'userId', as: 'user' });
 
 User.hasMany(UserSecurityLog, { foreignKey: 'userId', as: 'securityLogs' });
 UserSecurityLog.belongsTo(User, { foreignKey: 'userId', as: 'user' });
@@ -107,7 +111,7 @@ Promotion.belongsToMany(Category, { through: PromotionCategory, foreignKey: 'pro
 
 module.exports = {
     sequelize,
-    User, UserProfile, UserToken, UserSecurityLog, UserSetting, LoginAttempt,
+    User, UserProfile, UserToken, UserSecurityLog, UserSetting, LoginAttempt, AuthToken,
     Address, UserAddress, Country,
     Category, Product, ProductItem, UserReview,
     ShoppingCart, ShoppingCartItem,
