@@ -9,11 +9,11 @@ const authController = {
 
     async loginEnumDifferent(req, res, next) {
         try {
-            const result = await authService.loginEnumDifferent(req.body);
+            const user = await authService.loginEnumDifferent(req.body);
 
             await regenerateSession(req.session);
 
-            req.session.userId = result.id;
+            req.session.userId = user.id;
             req.session.stage = 'logged_in';
             await req.session.save();
 
@@ -25,11 +25,11 @@ const authController = {
 
     async loginEnumSubtle(req, res, next) {
         try {
-            const result = await authService.loginEnumSubtle(req.body);
+            const user = await authService.loginEnumSubtle(req.body);
 
             await regenerateSession(req.session);
 
-            req.session.userId = result.id;
+            req.session.userId = user.id;
             req.session.stage = 'logged_in';
             await req.session.save();
 
@@ -41,11 +41,11 @@ const authController = {
 
     async loginEnumTiming(req, res, next) {
         try {
-            const result = await authService.loginEnumTiming(req.body);
+            const user = await authService.loginEnumTiming(req.body);
 
             await regenerateSession(req.session);
 
-            req.session.userId = result.id;
+            req.session.userId = user.id;
             req.session.stage = 'logged_in';
             await req.session.save();
 
@@ -57,11 +57,11 @@ const authController = {
 
     async loginBrokenIpBlock(req, res, next) {
         try {
-            const result = await authService.loginBrokenIpBlock(req.body, req.ip, req.useragent);
+            const user = await authService.loginBrokenIpBlock(req.body, req.ip, req.useragent);
 
             await regenerateSession(req.session);
 
-            req.session.userId = result.id;
+            req.session.userId = user.id;
             req.session.stage = 'logged_in';
             await req.session.save();
 
@@ -73,11 +73,11 @@ const authController = {
 
     async loginEnumViaAccountLock(req, res, next) {
         try {
-            const result = await authService.loginEnumViaAccountLock(req.body);
+            const user = await authService.loginEnumViaAccountLock(req.body);
 
             await regenerateSession(req.session);
 
-            req.session.userId = result.id;
+            req.session.userId = user.id;
             req.session.stage = 'logged_in';
             await req.session.save();
 
@@ -89,11 +89,11 @@ const authController = {
 
     async loginMultipleCredsPerRequest(req, res, next) {
         try {
-            const result = await authService.loginMultipleCredsPerRequest(req.body, req.ip, req.useragent);
+            const user = await authService.loginMultipleCredsPerRequest(req.body, req.ip, req.useragent);
 
             await regenerateSession(req.session);
 
-            req.session.userId = result.id;
+            req.session.userId = user.id;
             req.session.stage = 'logged_in';
             await req.session.save();
 
@@ -105,12 +105,12 @@ const authController = {
 
     async loginStayLoggedInCookie(req, res, next) {
         try {
-            const result = await authService.loginStayLoggedInCookie(req.body);
+            const user = await authService.loginStayLoggedInCookie(req.body);
 
             await regenerateSession(req.session);
 
-            if (result?.isStayLoggedIn == "on") {
-                const { username, password } = result;
+            if (user?.isStayLoggedIn == "on") {
+                const { username, password } = user;
                 const md5HashOfPassword = crypto.createHash('md5').update(password, 'utf-8').digest('hex');
                 const stayLoggedInCookie = Buffer.from(username + ':' + md5HashOfPassword, 'utf-8').toString('base64');
 
@@ -122,7 +122,7 @@ const authController = {
                 });
             }
 
-            req.session.userId = result.id;
+            req.session.userId = user.id;
             req.session.stage = 'logged_in';
             await req.session.save();
 
@@ -134,8 +134,8 @@ const authController = {
 
     async passwordResetBrokenLogic(req, res, next) {
         try {
-            const result = await authService.generateFogotPasswordToken(req.body);
-            return successResponse(res, result, 'Please check your email for a reset password link.');
+            const token = await authService.generateFogotPasswordToken(req.body);
+            return successResponse(res, token, 'Please check your email for a reset password link.');
         } catch (error) {
             next(error);
         }
@@ -143,11 +143,11 @@ const authController = {
 
     async login2FASimpleBypass(req, res, next) {
         try {
-            const result = await authService.login2FASimpleBypass(req.body);
+            const user = await authService.login2FASimpleBypass(req.body);
             // This vulnerability occurs when the stage is assigned login before performing the OTP verification step.
             await regenerateSession(req.session);
 
-            req.session.userId = result.id;
+            req.session.userId = user.id;
             req.session.stage = 'logged_in'; //vul
             await req.session.save();
 
@@ -159,11 +159,11 @@ const authController = {
 
     async login2FASimpleBypassVer2(req, res, next) {
         try {
-            const result = await authService.login2FASimpleBypass(req.body);
+            const user = await authService.login2FASimpleBypass(req.body);
             // This is ok function it use pending stage but the vun happend in the session middleware
             await regenerateSession(req.session);
 
-            req.session.userId = result.id;
+            req.session.userId = user.id;
             req.session.stage = 'pending';
             await req.session.save();
 
@@ -176,11 +176,11 @@ const authController = {
     async login2FABrokenLogic(req, res, next) {
         // Although it still create a pending session, but it make the cookie which is used later during OTP verification 
         try {
-            const result = await authService.login2FABrokenLogic(req.body);
+            const user = await authService.login2FABrokenLogic(req.body);
 
             await regenerateSession(req.session);
 
-            const verifyUser = req.cookies.verify || result.username;
+            const verifyUser = req.cookies.verify || user.username;
             res.cookie('verify', verifyUser, { // Vulnerable cookie storing username for OTP verification
                 httpOnly: true,
                 sameSite: 'lax',
@@ -191,8 +191,8 @@ const authController = {
             // Vulnerable: OTP is generated for verifyUser (from cookie) instead of authenticated user
             const otp = crypto.randomInt(100000, 999999);
             await redisClient.set(`otp:${verifyUser}`, otp, { EX: 60 }); // Overwritten previous otp if any
-            await sendEmail(existedUser.email, 'OTP Verification', `Your OTP is: ${otp}`);
-            req.session.userId = result.id;
+            await sendEmail(user.email, 'OTP Verification', `Your OTP is: ${otp}`);
+            req.session.userId = user.id;
             req.session.stage = 'pending';
             await req.session.save();
 
@@ -210,7 +210,7 @@ const authController = {
         try {
             const { otp } = req.body;
             const userId = req.session.userId;
-            const result = await authService.verify2FAOtp(userId, otp);
+            const _user = await authService.verify2FAOtp(userId, otp); 
 
             const oldUserId = req.session.userId;
             await regenerateSession(req.session);
@@ -232,11 +232,10 @@ const authController = {
             if (!username) {
                 throw new AppError(400, 'Verification cookie is missing');
             }
-            const result = await authService.brokenVerify2FAOtp(username, otp);
-            const userId = result.id;
+            const user = await authService.brokenVerify2FAOtp(username, otp);
 
             await regenerateSession(req.session);
-            req.session.userId = userId;
+            req.session.userId = user.id;
             req.session.stage = 'logged_in';
             await req.session.save();
 

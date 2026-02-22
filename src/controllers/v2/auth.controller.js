@@ -129,11 +129,11 @@ const authController = {
 
     async loginSecure2FASimpleBypass(req, res, next) {
         try {
-            const result = await authService.loginSecure2FASimpleBypass(req.body);
+            const user = await authService.loginSecure2FASimpleBypass(req.body);
 
             await regenerateSession(req.session);
 
-            req.session.userId = result.id;
+            req.session.userId = user.id;
             req.session.stage = 'pending';
             await req.session.save();
 
@@ -145,11 +145,11 @@ const authController = {
 
     async loginSecure2FABrokenLogic(req, res, next) {
         try {
-            const result = await authService.loginSecure2FABrokenLogic(req.body);
+            const user = await authService.loginSecure2FABrokenLogic(req.body);
 
             await regenerateSession(req.session);
 
-            req.session.userId = result.id;
+            req.session.userId = user.id;
             req.session.stage = 'pending';
             req.session.otpAttempt = 0; // enhancement to track OTP attempts
             await req.session.save();
@@ -171,7 +171,7 @@ const authController = {
             const { otp } = req.body;
             const userId = req.session.userId;
             try {
-                const result = await authService.verifySecure2FAOtp(userId, otp);
+                const _user = await authService.verifySecure2FAOtp(userId, otp); 
             } catch (error) {
                 req.session.otpAttempt = (req.session.otpAttempt || 0) + 1;
                 await req.session.save();
@@ -202,7 +202,7 @@ const authController = {
             const { otp } = req.body;
             const userId = req.session.userId;
             try {
-                const result = await authService.brokenSecureVerify2FAOtp(userId, otp);
+                const _user = await authService.brokenSecureVerify2FAOtp(userId, otp);
             } catch (error) {
                 req.session.otpAttempt = (req.session.otpAttempt || 0) + 1;
                 await req.session.save();
@@ -227,10 +227,10 @@ const authController = {
         try {
             const REMEMBER_ME_DAYS = 30;
             const REMEMBER_ME_MS = REMEMBER_ME_DAYS * 24 * 60 * 60 * 1000;
-            const result = await authService.loginSecureStayLoggedInCookie(req.body);
+            const user = await authService.loginSecureStayLoggedInCookie(req.body);
             await regenerateSession(req.session);
 
-            if (result?.isStayLoggedIn == "on") {
+            if (user?.isStayLoggedIn == "on") {
                 const selector = crypto.randomBytes(8).toString('hex');
                 const validator = crypto.randomBytes(32).toString('hex');
                 const hashedValidator = crypto.createHash('sha256').update(validator).digest('hex');
@@ -238,7 +238,7 @@ const authController = {
                 AuthToken.create({
                     selector: selector,
                     hashedValidator: hashedValidator,
-                    userId: result.id,
+                    userId: user.id,
                     expires: new Date(Date.now() + REMEMBER_ME_MS),
                     ipAddress: req.ip,
                     userAgent: req.useragent?.source
@@ -254,7 +254,7 @@ const authController = {
                 });
             }
 
-            req.session.userId = result.id;
+            req.session.userId = user.id;
             req.session.stage = 'logged_in';
             await req.session.save();
 
