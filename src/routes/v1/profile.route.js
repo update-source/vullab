@@ -1,10 +1,12 @@
-const express = require('express');
+const express = require("express");
 const router = express.Router();
-const { profileController } = require('../../controllers/v1');
-const { requireAuthSession,
-        requireAuthSessionOrCookie,
-        requireAuthSessionIgnoreStage,
-        resolveCookieByBase64 } = require('../../middlewares');
+const { profileController } = require("../../controllers/v1");
+const {
+  requireAuthSession,
+  requireAuthSessionOrCookie,
+  requireAuthSessionIgnoreStage,
+  resolveCookieByBase64,
+} = require("../../middlewares");
 
 /**
  * @swagger
@@ -20,7 +22,7 @@ const { requireAuthSession,
  *       401:
  *         description: Unauthorized
  */
-router.get('/', requireAuthSession, profileController.getProfile);
+router.get("/", requireAuthSession, profileController.getProfile);
 
 /**
  * @swagger
@@ -36,7 +38,11 @@ router.get('/', requireAuthSession, profileController.getProfile);
  *       401:
  *         description: Unauthorized
  */
-router.get('/ignored-stage', requireAuthSessionIgnoreStage, profileController.getProfile);
+router.get(
+  "/ignored-stage",
+  requireAuthSessionIgnoreStage,
+  profileController.getProfile,
+);
 /**
  * @swagger
  * /api/v1/profile/cookie:
@@ -47,7 +53,7 @@ router.get('/ignored-stage', requireAuthSessionIgnoreStage, profileController.ge
  *       This endpoint accepts authentication via either:
  *       - Session cookie (standard session-based auth)
  *       - stay-logged-in cookie (persistent cookie with base64 encoded credentials)
- *       
+ *
  *       At least one of these must be present. If both are present, session takes priority.
  *     security:
  *       - cookieAuth: []
@@ -89,5 +95,10 @@ router.get('/ignored-stage', requireAuthSessionIgnoreStage, profileController.ge
  *                   type: string
  *                   example: Unauthorized
  */
-router.get('/cookie', requireAuthSessionOrCookie, resolveCookieByBase64, profileController.getProfile);
+router.get(
+  "/cookie",
+  requireAuthSessionOrCookie,
+  resolveCookieByBase64,
+  profileController.getProfile,
+);
 module.exports = router;

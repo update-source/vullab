@@ -1,38 +1,41 @@
-const { sequelize, DataTypes, Model } = require('../../config/database.config');
+const { sequelize, DataTypes, Model } = require("../../config/database.config");
 
-class PaymentMethod extends Model { }
+class PaymentMethod extends Model {}
 
-PaymentMethod.init({
+PaymentMethod.init(
+  {
     id: {
-        type: DataTypes.UUID,
-        defaultValue: DataTypes.UUIDV4,
-        primaryKey: true
+      type: DataTypes.UUID,
+      defaultValue: DataTypes.UUIDV4,
+      primaryKey: true,
     },
     code: {
-        type: DataTypes.STRING(50),
-        allowNull: false,
-        unique: true
+      type: DataTypes.STRING(50),
+      allowNull: false,
+      unique: true,
     },
     methodName: {
-        type: DataTypes.STRING(100),
-        allowNull: false
+      type: DataTypes.STRING(100),
+      allowNull: false,
     },
     description: {
-        type: DataTypes.TEXT
+      type: DataTypes.TEXT,
     },
     isActive: {
-        type: DataTypes.BOOLEAN,
-        defaultValue: true
+      type: DataTypes.BOOLEAN,
+      defaultValue: true,
     },
     processingFeePercentage: {
-        type: DataTypes.DECIMAL(5, 2),
-        defaultValue: 0.00
-    }
-}, {
+      type: DataTypes.DECIMAL(5, 2),
+      defaultValue: 0.0,
+    },
+  },
+  {
     sequelize,
-    tableName: 'payment_method',
+    tableName: "payment_method",
     underscored: true,
-    timestamps: false
-});
+    timestamps: false,
+  },
+);
 
 module.exports = { PaymentMethod };

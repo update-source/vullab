@@ -1,47 +1,48 @@
-const { sequelize, DataTypes, Model } = require('../../config/database.config');
+const { sequelize, DataTypes, Model } = require("../../config/database.config");
 
-class LoginAttempt extends Model { }
+class LoginAttempt extends Model {}
 
-LoginAttempt.init({
+LoginAttempt.init(
+  {
     id: {
-        type: DataTypes.UUID,
-        defaultValue: DataTypes.UUIDV4,
-        primaryKey: true
+      type: DataTypes.UUID,
+      defaultValue: DataTypes.UUIDV4,
+      primaryKey: true,
     },
     ipAddress: {
-        type: DataTypes.STRING(45),
-        allowNull: false,
-        comment: 'IP address attempting to login'
+      type: DataTypes.STRING(45),
+      allowNull: false,
+      comment: "IP address attempting to login",
     },
     attemptCount: {
-        type: DataTypes.INTEGER,
-        defaultValue: 0,
-        allowNull: false,
-        comment: 'Number of failed login attempts'
+      type: DataTypes.INTEGER,
+      defaultValue: 0,
+      allowNull: false,
+      comment: "Number of failed login attempts",
     },
     blockedUntil: {
-        type: DataTypes.DATE,
-        allowNull: true,
-        comment: 'Timestamp when the block expires'
+      type: DataTypes.DATE,
+      allowNull: true,
+      comment: "Timestamp when the block expires",
     },
     lastAttempt: {
-        type: DataTypes.DATE,
-        allowNull: true,
-        comment: 'Timestamp of the last login attempt'
+      type: DataTypes.DATE,
+      allowNull: true,
+      comment: "Timestamp of the last login attempt",
     },
     metadata: {
-        type: DataTypes.JSONB,
-        defaultValue: {},
-        comment: 'Additional data: user_agent, attempted_email, etc.'
-    }
-}, {
+      type: DataTypes.JSONB,
+      defaultValue: {},
+      comment: "Additional data: user_agent, attempted_email, etc.",
+    },
+  },
+  {
     sequelize,
-    tableName: 'login_attempt',
+    tableName: "login_attempt",
     underscored: true,
     timestamps: true,
-    indexes: [
-        { unique: true, fields: ['ip_address'] }
-    ]
-});
+    indexes: [{ unique: true, fields: ["ip_address"] }],
+  },
+);
 
 module.exports = { LoginAttempt };

@@ -1,4 +1,4 @@
-const { body } = require('express-validator');
+const { body, query } = require("express-validator");
 /*
     Best Practices for Basic Validation
     Sanitize before validating - Remove unwanted characters first, then check if the data is valid
@@ -10,81 +10,155 @@ const { body } = require('express-validator');
     Use matchedData() when convenient - Get a clean object with just the validated fields
 */
 const registerRules = [
-    body('username')
-        .trim()
-        .notEmpty().withMessage('Username is required')
-        .isLength({ min: 3, max: 30 }).withMessage('Username must be between 3 and 30 characters')
-        .matches(/^[a-zA-Z0-9_-]+$/).withMessage('Username can only contain letters, numbers, underscore and hyphen')
-        .matches(/^[a-zA-Z0-9]/).withMessage('Username must start with a letter or number')
-        .matches(/[a-zA-Z0-9]$/).withMessage('Username must end with a letter or number')
-        .not().matches(/[-_]{2,}/).withMessage('Username cannot contain consecutive special characters')
-        .toLowerCase(),
+  body("username")
+    .trim()
+    .notEmpty()
+    .withMessage("Username is required")
+    .isLength({ min: 3, max: 30 })
+    .withMessage("Username must be between 3 and 30 characters")
+    .matches(/^[a-zA-Z0-9_-]+$/)
+    .withMessage(
+      "Username can only contain letters, numbers, underscore and hyphen",
+    )
+    .matches(/^[a-zA-Z0-9]/)
+    .withMessage("Username must start with a letter or number")
+    .matches(/[a-zA-Z0-9]$/)
+    .withMessage("Username must end with a letter or number")
+    .not()
+    .matches(/[-_]{2,}/)
+    .withMessage("Username cannot contain consecutive special characters")
+    .toLowerCase(),
 
-    body('email')
-        .trim()
-        .notEmpty().withMessage('Email is required')
-        .isEmail().withMessage('Invalid email address')
-        .normalizeEmail(),
-    
-    body('password')
-        .isStrongPassword({
-            minLength: 8,
-            minLowercase: 1,
-            minUppercase: 1,
-            minNumbers: 1,
-            minSymbols: 1
-        })
-        .withMessage('Password must be at least 8 characters with uppercase and number')
+  body("email")
+    .trim()
+    .notEmpty()
+    .withMessage("Email is required")
+    .isEmail()
+    .withMessage("Invalid email address")
+    .normalizeEmail(),
+
+  body("password")
+    .isStrongPassword({
+      minLength: 8,
+      minLowercase: 1,
+      minUppercase: 1,
+      minNumbers: 1,
+      minSymbols: 1,
+    })
+    .withMessage(
+      "Password must be at least 8 characters with uppercase and number",
+    ),
 ];
 
 const loginRules = [
-    body('username')
-        .trim()
-        .notEmpty().withMessage('Username is required')
-        .isLength({ min: 3, max: 50 }).withMessage('Username must be between 3 and 50 characters'),
+  body("username")
+    .trim()
+    .notEmpty()
+    .withMessage("Username is required")
+    .isLength({ min: 3, max: 50 })
+    .withMessage("Username must be between 3 and 50 characters"),
 
-    body('password')
-        .trim()
-        .notEmpty().withMessage('Password is required')
-        .isLength({ min: 8 }).withMessage('Password must be at least 8 characters'),
+  body("password")
+    .trim()
+    .notEmpty()
+    .withMessage("Password is required")
+    .isLength({ min: 8 })
+    .withMessage("Password must be at least 8 characters"),
 ];
 
 const otpRules = [
-    body('otp')
-        .exists().withMessage('OTP is required')
-        .isLength({ min: 6, max: 6 }).withMessage('OTP must be 6 digits')
-    .isNumeric().withMessage('OTP must contain only numbers')
-    .toInt()
+  body("otp")
+    .exists()
+    .withMessage("OTP is required")
+    .isLength({ min: 6, max: 6 })
+    .withMessage("OTP must be 6 digits")
+    .isNumeric()
+    .withMessage("OTP must contain only numbers")
+    .toInt(),
 ];
 
-const forgotPasswordRules = [
-    body('username')
-        .trim()
-        .notEmpty().withMessage('Username is required')
-        .isLength({ min: 3, max: 50 }).withMessage('Username must be between 3 and 50 characters'),
+const generateForgotPasswordTokenRules = [
+  body("username")
+    .trim()
+    .notEmpty()
+    .withMessage("Username is required")
+    .isLength({ min: 3, max: 50 })
+    .withMessage("Username must be between 3 and 50 characters"),
 
-    body('email')
-        .trim()
-        .notEmpty().withMessage('Email is required')
-        .isEmail().withMessage('Invalid email address')
-        .normalizeEmail(),
+  body("email")
+    .trim()
+    .notEmpty()
+    .withMessage("Email is required")
+    .isEmail()
+    .withMessage("Invalid email address")
+    .normalizeEmail(),
 
-    body().custom((value, { req }) => {
-        const { username, email } = req.body;
-        if (!username && !email) {
-            throw new Error('Username or email is required');
-        }
-        return true;
-    }),
+  body().custom((value, { req }) => {
+    const { username, email } = req.body;
+    if (!username && !email) {
+      throw new Error("Username or email is required");
+    }
+    return true;
+  }),
 
-    body('forgot-password')
-        .exists().withMessage('Forgot password is required')
-        .isBoolean().withMessage('Forgot password must be a boolean')
-        .toBoolean()
+  body("forgot-password")
+    .exists()
+    .withMessage("Forgot password is required")
+    .isBoolean()
+    .withMessage("Forgot password must be a boolean")
+    .toBoolean(),
+];
+
+const resetPasswordBrokenLogicRules = [
+  body("username")
+    .trim()
+    .notEmpty()
+    .withMessage("Username is required")
+    .isLength({ min: 3, max: 50 })
+    .withMessage("Username must be between 3 and 50 characters"),
+
+  body("new-password")
+    .isStrongPassword({
+      minLength: 8,
+      minLowercase: 1,
+      minUppercase: 1,
+      minNumbers: 1,
+      minSymbols: 1,
+    })
+    .withMessage(
+      "Password must be at least 8 characters with uppercase and number",
+    ),
+
+  body("confirm-password")
+    .isStrongPassword({
+      minLength: 8,
+      minLowercase: 1,
+      minUppercase: 1,
+      minNumbers: 1,
+      minSymbols: 1,
+    })
+    .withMessage(
+      "Password must be at least 8 characters with uppercase and number",
+    ),
+
+  body().custom((value, { req }) => {
+    const { "new-password": newPassword, "confirm-password": confirmPassword } =
+      req.body;
+    if (newPassword !== confirmPassword) {
+      throw new Error("Passwords do not match");
+    }
+    return true;
+  }),
+
+  // Token must be present in query string (value can be empty — intentional broken logic)
+  query("temp-forgot-password-token")
+    .exists()
+    .withMessage("temp-forgot-password-token query param is required"),
 ];
 module.exports = {
-    registerRules,
-    loginRules,
-    otpRules,
-    forgotPasswordRules
+  registerRules,
+  loginRules,
+  otpRules,
+  generateForgotPasswordTokenRules,
+  resetPasswordBrokenLogicRules,
 };

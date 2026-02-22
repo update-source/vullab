@@ -1,46 +1,49 @@
-const { sequelize, DataTypes, Model } = require('../../config/database.config');
+const { sequelize, DataTypes, Model } = require("../../config/database.config");
 
-class Category extends Model { }
+class Category extends Model {}
 
-Category.init({
+Category.init(
+  {
     id: {
-        type: DataTypes.UUID,
-        defaultValue: DataTypes.UUIDV4,
-        primaryKey: true
+      type: DataTypes.UUID,
+      defaultValue: DataTypes.UUIDV4,
+      primaryKey: true,
     },
     parentCategoryId: {
-        type: DataTypes.UUID,
-        allowNull: true,
-        references: {
-            model: 'category',
-            key: 'id'
-        }
+      type: DataTypes.UUID,
+      allowNull: true,
+      references: {
+        model: "category",
+        key: "id",
+      },
     },
     categoryName: {
-        type: DataTypes.STRING(100),
-        allowNull: false
+      type: DataTypes.STRING(100),
+      allowNull: false,
     },
     slug: {
-        type: DataTypes.STRING(100),
-        allowNull: false,
-        unique: true
+      type: DataTypes.STRING(100),
+      allowNull: false,
+      unique: true,
     },
     description: {
-        type: DataTypes.TEXT
+      type: DataTypes.TEXT,
     },
     isActive: {
-        type: DataTypes.BOOLEAN,
-        defaultValue: true
+      type: DataTypes.BOOLEAN,
+      defaultValue: true,
     },
     displayOrder: {
-        type: DataTypes.INTEGER,
-        defaultValue: 0
-    }
-}, {
+      type: DataTypes.INTEGER,
+      defaultValue: 0,
+    },
+  },
+  {
     sequelize,
-    tableName: 'category',
+    tableName: "category",
     underscored: true,
-    timestamps: true
-});
+    timestamps: true,
+  },
+);
 
 module.exports = { Category };

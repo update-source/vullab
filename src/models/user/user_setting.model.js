@@ -1,42 +1,45 @@
-const { sequelize, DataTypes, Model } = require('../../config/database.config');
+const { sequelize, DataTypes, Model } = require("../../config/database.config");
 
 class UserSetting extends Model {}
 
-UserSetting.init({
+UserSetting.init(
+  {
     id: {
-        type: DataTypes.UUID,
-        defaultValue: DataTypes.UUIDV4,
-        primaryKey: true
+      type: DataTypes.UUID,
+      defaultValue: DataTypes.UUIDV4,
+      primaryKey: true,
     },
     userId: {
-        type: DataTypes.UUID,
-        allowNull: false,
-        references: {
-            model: 'user',
-            key: 'id'
-        }
+      type: DataTypes.UUID,
+      allowNull: false,
+      references: {
+        model: "user",
+        key: "id",
+      },
     },
     enable2FA: {
-        type: DataTypes.BOOLEAN,
-        defaultValue: false
+      type: DataTypes.BOOLEAN,
+      defaultValue: false,
     },
     loginNotifications: {
-        type: DataTypes.BOOLEAN,
-        defaultValue: true
+      type: DataTypes.BOOLEAN,
+      defaultValue: true,
     },
     profileVisibility: {
-        type: DataTypes.ENUM('public', 'private'),
-        defaultValue: 'public'
+      type: DataTypes.ENUM("public", "private"),
+      defaultValue: "public",
     },
     preferences: {
-        type: DataTypes.JSONB,
-        defaultValue: {}
-    }
-}, {
+      type: DataTypes.JSONB,
+      defaultValue: {},
+    },
+  },
+  {
     sequelize,
-    tableName: 'user_setting',
+    tableName: "user_setting",
     underscored: true,
-    timestamps: true
-});
+    timestamps: true,
+  },
+);
 
 module.exports = { UserSetting };

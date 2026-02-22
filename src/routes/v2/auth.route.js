@@ -1,11 +1,13 @@
-const express = require('express');
+const express = require("express");
 const router = express.Router();
-const { authController } = require('../../controllers/v2');
-const { otpRules,
-    loginRules,
-    registerRules,
-    handleValidation,
-    requirePendingOtpSession } = require('../../middlewares');
+const { authController } = require("../../controllers/v2");
+const {
+  otpRules,
+  loginRules,
+  registerRules,
+  handleValidation,
+  requirePendingOtpSession,
+} = require("../../middlewares");
 
 /**
  * @swagger
@@ -14,7 +16,7 @@ const { otpRules,
  *     tags: [V2 - Authentication (Secure)]
  *     summary: Register a new user
  *     description: |
- *       Register a new user account. Since SMTP is not configured, you can set 
+ *       Register a new user account. Since SMTP is not configured, you can set
  *       `isEmailVerified: true` to bypass email verification for testing.
  *     requestBody:
  *       required: true
@@ -28,7 +30,12 @@ const { otpRules,
  *       400:
  *         description: Validation error
  */
-router.post('/register', registerRules, handleValidation, authController.register);
+router.post(
+  "/register",
+  registerRules,
+  handleValidation,
+  authController.register,
+);
 
 /**
  * @swagger
@@ -46,7 +53,12 @@ router.post('/register', registerRules, handleValidation, authController.registe
  *       302:
  *         description: Redirect to profile on success
  */
-router.post('/enum/different-responses', loginRules, handleValidation, authController.loginEnumDifferentFix);
+router.post(
+  "/enum/different-responses",
+  loginRules,
+  handleValidation,
+  authController.loginEnumDifferentFix,
+);
 
 /**
  * @swagger
@@ -64,7 +76,12 @@ router.post('/enum/different-responses', loginRules, handleValidation, authContr
  *       302:
  *         description: Redirect to profile on success
  */
-router.post('/enum/subtle-responses', loginRules, handleValidation, authController.loginEnumSubtleFix);
+router.post(
+  "/enum/subtle-responses",
+  loginRules,
+  handleValidation,
+  authController.loginEnumSubtleFix,
+);
 
 /**
  * @swagger
@@ -82,7 +99,12 @@ router.post('/enum/subtle-responses', loginRules, handleValidation, authControll
  *       302:
  *         description: Redirect to profile on success
  */
-router.post('/enum/timing-responses', loginRules, handleValidation, authController.loginEnumTimingFix);
+router.post(
+  "/enum/timing-responses",
+  loginRules,
+  handleValidation,
+  authController.loginEnumTimingFix,
+);
 
 /**
  * @swagger
@@ -100,7 +122,12 @@ router.post('/enum/timing-responses', loginRules, handleValidation, authControll
  *       302:
  *         description: Redirect to profile on success
  */
-router.post('/enum/account-lock', loginRules, handleValidation, authController.loginSecureAccountLock);
+router.post(
+  "/enum/account-lock",
+  loginRules,
+  handleValidation,
+  authController.loginSecureAccountLock,
+);
 
 /**
  * @swagger
@@ -118,7 +145,12 @@ router.post('/enum/account-lock', loginRules, handleValidation, authController.l
  *       302:
  *         description: Redirect to profile on success
  */
-router.post('/brute-force/broken-ip-block', loginRules, handleValidation, authController.loginSecureIpBlock);
+router.post(
+  "/brute-force/broken-ip-block",
+  loginRules,
+  handleValidation,
+  authController.loginSecureIpBlock,
+);
 
 /**
  * @swagger
@@ -136,7 +168,12 @@ router.post('/brute-force/broken-ip-block', loginRules, handleValidation, authCo
  *       302:
  *         description: Redirect to profile on success
  */
-router.post('/brute-force/multiple-credentials-per-request', loginRules, handleValidation, authController.loginSecureMultipleCredsPerRequest);
+router.post(
+  "/brute-force/multiple-credentials-per-request",
+  loginRules,
+  handleValidation,
+  authController.loginSecureMultipleCredsPerRequest,
+);
 
 /**
  * @swagger
@@ -193,7 +230,12 @@ router.post('/brute-force/multiple-credentials-per-request', loginRules, handleV
  *       401:
  *         description: Invalid credentials
  */
-router.post('/brute-force/stay-logged-in-cookie', loginRules, handleValidation, authController.loginSecureStayLoggedInCookie);
+router.post(
+  "/brute-force/stay-logged-in-cookie",
+  loginRules,
+  handleValidation,
+  authController.loginSecureStayLoggedInCookie,
+);
 
 /**
  * @swagger
@@ -212,7 +254,12 @@ router.post('/brute-force/stay-logged-in-cookie', loginRules, handleValidation, 
  *       200:
  *         description: OTP sent to email
  */
-router.post('/2FA/simple-bypass', loginRules, handleValidation, authController.loginSecure2FASimpleBypass);
+router.post(
+  "/2FA/simple-bypass",
+  loginRules,
+  handleValidation,
+  authController.loginSecure2FASimpleBypass,
+);
 
 /**
  * @swagger
@@ -221,14 +268,14 @@ router.post('/2FA/simple-bypass', loginRules, handleValidation, authController.l
  *     tags: [V2 - Authentication (Secure)]
  *     summary: Secure 2FA login (fixed broken logic)
  *     description: |
- *       This is the secure version of the broken-logic endpoint. OTP is properly tied to the 
+ *       This is the secure version of the broken-logic endpoint. OTP is properly tied to the
  *       authenticated session, not a manipulable cookie.
- *       
+ *
  *       **Security fixes:**
  *       1. OTP is generated based on session userId, not cookie
  *       2. Session regeneration prevents session fixation
  *       3. OTP attempts are tracked and limited
- *       
+ *
  *       After this step, call /api/v2/auth/2FA/broken-verify-otp with the OTP.
  *     requestBody:
  *       required: true
@@ -242,7 +289,12 @@ router.post('/2FA/simple-bypass', loginRules, handleValidation, authController.l
  *       401:
  *         description: Invalid credentials
  */
-router.post('/2FA/broken-logic', loginRules, handleValidation, authController.loginSecure2FABrokenLogic);
+router.post(
+  "/2FA/broken-logic",
+  loginRules,
+  handleValidation,
+  authController.loginSecure2FABrokenLogic,
+);
 
 /**
  * @swagger
@@ -263,7 +315,13 @@ router.post('/2FA/broken-logic', loginRules, handleValidation, authController.lo
  *       302:
  *         description: Redirect to profile on success
  */
-router.post('/2FA/verify-otp', requirePendingOtpSession, otpRules, handleValidation, authController.verifySecure2FAOtp);
+router.post(
+  "/2FA/verify-otp",
+  requirePendingOtpSession,
+  otpRules,
+  handleValidation,
+  authController.verifySecure2FAOtp,
+);
 
 /**
  * @swagger
@@ -272,15 +330,15 @@ router.post('/2FA/verify-otp', requirePendingOtpSession, otpRules, handleValidat
  *     tags: [V2 - Authentication (Secure)]
  *     summary: Verify OTP with secure implementation (fixed broken logic)
  *     description: |
- *       This is the secure version of the broken-verify-otp endpoint. The user identity 
+ *       This is the secure version of the broken-verify-otp endpoint. The user identity
  *       is properly determined from the session, not from a manipulable cookie.
- *       
+ *
  *       **Security fixes:**
  *       1. User identity taken from session userId, not cookie
  *       2. OTP attempts are tracked and limited (max 3 attempts)
  *       3. Session regeneration after successful verification
  *       4. Proper session cleanup on max attempts exceeded
- *       
+ *
  *       **Usage:** Send OTP in request body with valid session.
  *     security:
  *       - cookieAuth: []
@@ -298,8 +356,13 @@ router.post('/2FA/verify-otp', requirePendingOtpSession, otpRules, handleValidat
  *       403:
  *         description: Maximum OTP attempts exceeded
  */
-router.post('/2FA/broken-verify-otp', requirePendingOtpSession, otpRules, handleValidation, authController.brokenSecureVerify2FAOtp);
-
+router.post(
+  "/2FA/broken-verify-otp",
+  requirePendingOtpSession,
+  otpRules,
+  handleValidation,
+  authController.brokenSecureVerify2FAOtp,
+);
 
 /**
  * @swagger
@@ -313,6 +376,6 @@ router.post('/2FA/broken-verify-otp', requirePendingOtpSession, otpRules, handle
  *       200:
  *         description: Logged out successfully
  */
-router.post('/logout', authController.logout);
+router.post("/logout", authController.logout);
 
 module.exports = router;

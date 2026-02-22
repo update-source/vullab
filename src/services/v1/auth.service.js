@@ -1,456 +1,511 @@
 // V1 Service - Will contain vulnerable logic
-const { User, LoginAttempt, UserSecurityLog, UserToken } = require('../../models');
-const { Op } = require('sequelize');
-const bcrypt = require('bcryptjs');
-const AppError = require('../../utils/AppError');
-const { sendEmail } = require('../../utils/email');
-const { redisClient } = require('../../config/redis.config');
-const crypto = require('crypto');
+const {
+  User,
+  LoginAttempt,
+  UserSecurityLog,
+  UserToken,
+} = require("../../models");
+const { Op } = require("sequelize");
+const bcrypt = require("bcryptjs");
+const AppError = require("../../utils/AppError");
+const { sendEmail } = require("../../utils/email");
+const { redisClient } = require("../../config/redis.config");
+const crypto = require("crypto");
 const authService = {
+  async loginEnumDifferent(data) {
+    const { username, password } = data;
+    const existedUser = await User.findOne({ where: { username: username } });
 
-    async loginEnumDifferent(data) {
-        const { username, password } = data;
-        const existedUser = await User.findOne({ where: { username: username } });
+    const dummyHash = "$2a$10$abcdefghijklmnopqrstuvwxyzABC";
+    const targetHash = existedUser ? existedUser.password : dummyHash;
 
-        const dummyHash = '$2a$10$abcdefghijklmnopqrstuvwxyzABC';
-        const targetHash = existedUser ? existedUser.password : dummyHash;
+    const isMatch = await bcrypt.compare(password, targetHash);
+    if (!existedUser) {
+      throw new AppError(401, "Invalid username");
+    }
 
-        const isMatch = await bcrypt.compare(password, targetHash);
-        if (!existedUser) {
-            throw new AppError(401, "Invalid username");
-        }
+    if (!isMatch) {
+      throw new AppError(401, "Invalid password");
+    }
 
-        if (!isMatch) {
-            throw new AppError(401, "Invalid password");
-        }
+    return {
+      id: existedUser.id,
+      username: existedUser.username,
+      email: existedUser.email,
+      createdAt: existedUser.createdAt,
+    };
+  },
 
-        return {
-            id: existedUser.id,
-            username: existedUser.username,
-            email: existedUser.email,
-            createdAt: existedUser.createdAt
-        };
-    },
+  async loginEnumSubtle(data) {
+    const { username, password } = data;
+    const existedUser = await User.findOne({ where: { username: username } });
 
-    async loginEnumSubtle(data) {
-        const { username, password } = data;
-        const existedUser = await User.findOne({ where: { username: username } });
+    const dummyHash = "$2a$10$abcdefghijklmnopqrstuvwxyzABC";
+    const targetHash = existedUser ? existedUser.password : dummyHash;
 
-        const dummyHash = '$2a$10$abcdefghijklmnopqrstuvwxyzABC';
-        const targetHash = existedUser ? existedUser.password : dummyHash;
+    const isMatch = await bcrypt.compare(password, targetHash);
+    if (!existedUser) {
+      throw new AppError(401, "Invalid username or password");
+    }
 
-        const isMatch = await bcrypt.compare(password, targetHash);
-        if (!existedUser) {
-            throw new AppError(401, "Invalid username or password");
-        }
+    if (!isMatch) {
+      throw new AppError(401, "Invalid username or password."); // Adding a dot
+    }
 
-        if (!isMatch) {
-            throw new AppError(401, "Invalid username or password."); // Adding a dot 
-        }
+    return {
+      id: existedUser.id,
+      username: existedUser.username,
+      email: existedUser.email,
+      createdAt: existedUser.createdAt,
+    };
+  },
 
-        return {
-            id: existedUser.id,
-            username: existedUser.username,
-            email: existedUser.email,
-            createdAt: existedUser.createdAt
-        };
-    },
+  async loginEnumTiming(data) {
+    const { username, password } = data;
+    const existedUser = await User.findOne({ where: { username: username } });
 
-    async loginEnumTiming(data) {
-        const { username, password } = data;
-        const existedUser = await User.findOne({ where: { username: username } });
+    if (!existedUser) {
+      throw new AppError(401, "Invalid username or password");
+    }
+    if (!(await bcrypt.compare(password, existedUser.password))) {
+      throw new AppError(401, "Invalid username or password");
+    }
 
-        if (!existedUser) {
-            throw new AppError(401, "Invalid username or password");
-        }
-        if (!await bcrypt.compare(password, existedUser.password)) {
-            throw new AppError(401, "Invalid username or password");
-        }
+    return {
+      id: existedUser.id,
+      username: existedUser.username,
+      email: existedUser.email,
+      createdAt: existedUser.createdAt,
+    };
+  },
 
-        return {
-            id: existedUser.id,
-            username: existedUser.username,
-            email: existedUser.email,
-            createdAt: existedUser.createdAt
-        };
-    },
+  async loginEnumViaAccountLock(data) {
+    const { username, password } = data;
+    const existedUser = await User.findOne({ where: { username: username } });
+    const userId = existedUser ? existedUser.id : null;
 
-    async loginEnumViaAccountLock(data) {
-        const { username, password } = data;
-        const existedUser = await User.findOne({ where: { username: username } });
-        const userId = existedUser ? existedUser.id : null;
+    const dummyHash = "$2a$10$abcdefghijklmnopqrstuvwxyzABC";
+    const targetHash = existedUser ? existedUser.password : dummyHash;
 
-        const dummyHash = '$2a$10$abcdefghijklmnopqrstuvwxyzABC';
-        const targetHash = existedUser ? existedUser.password : dummyHash;
+    const isMatch = await bcrypt.compare(password, targetHash);
 
-        const isMatch = await bcrypt.compare(password, targetHash);
+    if (existedUser && isMatch) {
+      await UserSecurityLog.destroy({
+        where: {
+          userId: userId,
+          eventType: "login_failed",
+        },
+      });
 
-        if (existedUser && isMatch) {
-            await UserSecurityLog.destroy({
-                where: {
-                    userId: userId,
-                    eventType: 'login_failed'
-                }
-            });
+      return {
+        id: existedUser.id,
+        username: existedUser.username,
+        email: existedUser.email,
+        createdAt: existedUser.createdAt,
+      };
+    }
 
-            return {
-                id: existedUser.id,
-                username: existedUser.username,
-                email: existedUser.email,
-                createdAt: existedUser.createdAt
-            };
-        };
+    if (existedUser && !isMatch) {
+      const failedAttempts = await UserSecurityLog.count({
+        where: {
+          userId: userId,
+          eventType: "login_failed",
+          createdAt: {
+            [Op.gte]: new Date(Date.now() - 3 * 60 * 1000),
+          },
+        },
+      });
+      const MAX_ATTEMPTS = 3;
 
-        if (existedUser && !isMatch) {
-            const failedAttempts = await UserSecurityLog.count({
-                where: {
-                    userId: userId,
-                    eventType: 'login_failed',
-                    createdAt: {
-                        [Op.gte]: new Date(Date.now() - 3 * 60 * 1000)
-                    }
-                }
-            });
-            const MAX_ATTEMPTS = 3;
-
-            if (failedAttempts >= MAX_ATTEMPTS) {
-                throw new AppError(429, "You have made too many incorrect login attempts. Please try again in 1 minute(s).");
-            }
-
-            await UserSecurityLog.create({
-                userId: userId,
-                eventType: 'login_failed',
-                createdAt: new Date(Date.now())
-            });
-            throw new AppError(401, "Invalid username or password");
-        }
-        throw new AppError(401, "Invalid username or password");
-    },
-
-    async loginBrokenIpBlock(data, ip, metadata) {
-        const { username, password } = data;
-        const existedUser = await User.findOne({ where: { username: username } });
-        let existedIp = await LoginAttempt.findOne({ where: { ipAddress: ip } });
-
-        const dummyHash = '$2a$10$abcdefghijklmnopqrstuvwxyzABC';
-        const targetHash = existedUser ? existedUser.password : dummyHash;
-
-        const isMatch = await bcrypt.compare(password, targetHash);
-
-        if (!existedIp) {
-            existedIp = await LoginAttempt.create({
-                ipAddress: ip,
-                attemptCount: 0,
-                metadata: metadata
-            });
-        }
-
-        if (existedUser && isMatch) {
-            await LoginAttempt.update(
-                {
-                    attemptCount: 0,
-                    blockedUntil: null,
-                    lastAttempt: new Date(),
-                    metadata: metadata
-                },
-                { where: { ipAddress: ip } }
-            );
-
-            return {
-                id: existedUser.id,
-                username: existedUser.username,
-                email: existedUser.email,
-                createdAt: existedUser.createdAt
-            };
-        }
-
-        if (existedIp.blockedUntil && new Date() < new Date(existedIp.blockedUntil)) {
-            throw new AppError(429, 'You have made too many incorrect login attempts. Please try again in 1 minute(s).');
-        }
-
-        if (existedIp.blockedUntil && new Date() >= new Date(existedIp.blockedUntil)) {
-            await LoginAttempt.update(
-                {
-                    attemptCount: 0,
-                    blockedUntil: null,
-                    metadata: metadata
-                },
-                { where: { ipAddress: ip } }
-            );
-            existedIp.attemptCount = 0;
-            existedIp.blockedUntil = null;
-        }
-
-        const newAttemptCount = existedIp.attemptCount + 1;
-        const MAX_ATTEMPTS = 3;
-        if (newAttemptCount >= MAX_ATTEMPTS) {
-            const blockedUntil = new Date(Date.now() + 1 * 60 * 1000);
-            await LoginAttempt.update(
-                {
-                    attemptCount: newAttemptCount,
-                    blockedUntil: blockedUntil,
-                    lastAttempt: new Date(),
-                    metadata: metadata
-                },
-                { where: { ipAddress: ip } }
-            );
-            throw new AppError(429, "You have made too many incorrect login attempts. Please try again in 1 minute(s).");
-        } else {
-            await LoginAttempt.update(
-                {
-                    attemptCount: newAttemptCount,
-                    lastAttempt: new Date(),
-                    metadata: metadata
-                },
-                { where: { ipAddress: ip } }
-            );
-            throw new AppError(401, "Invalid username or password");
-        }
-    },
-
-    async loginMultipleCredsPerRequest(data, ip, metadata) {
-        // Adding the Ip block, checking the ip first, then check user and password
-        let existedIp = await LoginAttempt.findOne({ where: { ipAddress: ip } });
-
-        if (!existedIp) {
-            existedIp = await LoginAttempt.create({
-                ipAddress: ip,
-                attemptCount: 0,
-                metadata: metadata
-            });
-        };
-
-        if (existedIp.blockedUntil && new Date() < new Date(existedIp.blockedUntil)) {
-            throw new AppError(429, 'You have made too many incorrect login attempts. Please try again in 1 minute(s).');
-        }
-
-        if (existedIp.blockedUntil && new Date() >= new Date(existedIp.blockedUntil)) {
-            await LoginAttempt.update(
-                {
-                    attemptCount: 0,
-                    blockedUntil: null,
-                    metadata: metadata
-                },
-                { where: { ipAddress: ip } }
-            );
-            existedIp.attemptCount = 0;
-            existedIp.blockedUntil = null;
-        }
-
-        const { username, password } = data;
-        const existedUser = await User.findOne({ where: { username: username } });
-
-        const dummyHash = '$2a$10$abcdefghijklmnopqrstuvwxyzABC';
-        const targetHash = existedUser ? existedUser.password : dummyHash;
-        let isMatch = false;
-
-        if (Array.isArray(password)) {
-            for (const pass of password) {
-                const matchFound = await bcrypt.compare(pass, targetHash);
-
-                if (matchFound) {
-                    isMatch = true;
-                    break;
-                }
-            }
-        } else {
-            isMatch = await bcrypt.compare(password, targetHash);
-        };
-
-        if (!existedUser || !isMatch) {
-            const newAttemptCount = existedIp.attemptCount + 1;
-            const MAX_ATTEMPTS = 3;
-            if (newAttemptCount >= MAX_ATTEMPTS) {
-                const blockedUntil = new Date(Date.now() + 1 * 60 * 1000);
-                await LoginAttempt.update(
-                    {
-                        attemptCount: newAttemptCount,
-                        blockedUntil: blockedUntil,
-                        lastAttempt: new Date(),
-                        metadata: metadata
-                    },
-                    { where: { ipAddress: ip } }
-                );
-                throw new AppError(429, "You have made too many incorrect login attempts. Please try again in 1 minute(s).");
-            } else {
-                await LoginAttempt.update(
-                    {
-                        attemptCount: newAttemptCount,
-                        lastAttempt: new Date(),
-                        metadata: metadata
-                    },
-                    { where: { ipAddress: ip } }
-                );
-                throw new AppError(401, "Invalid username or password");
-            }
-        }
-
-        await LoginAttempt.update(
-            {
-                attemptCount: 0,
-                blockedUntil: null,
-                lastAttempt: new Date(),
-                metadata: metadata
-            },
-            { where: { ipAddress: ip } }
+      if (failedAttempts >= MAX_ATTEMPTS) {
+        throw new AppError(
+          429,
+          "You have made too many incorrect login attempts. Please try again in 1 minute(s).",
         );
+      }
 
-        return {
-            id: existedUser.id,
-            username: existedUser.username,
-            email: existedUser.email,
-            createdAt: existedUser.createdAt
-        };
-    },
+      await UserSecurityLog.create({
+        userId: userId,
+        eventType: "login_failed",
+        createdAt: new Date(Date.now()),
+      });
+      throw new AppError(401, "Invalid username or password");
+    }
+    throw new AppError(401, "Invalid username or password");
+  },
 
-    async loginStayLoggedInCookie(data) {
-        const { username, password, 'stay-logged-in': isStayLoggedIn} = data;
-        const existedUser = await User.findOne({ where: { username: username } });
+  async loginBrokenIpBlock(data, ip, metadata) {
+    const { username, password } = data;
+    const existedUser = await User.findOne({ where: { username: username } });
+    let existedIp = await LoginAttempt.findOne({ where: { ipAddress: ip } });
 
-        const dummyHash = '$2a$10$abcdefghijklmnopqrstuvwxyzABC';
-        const targetHash = existedUser ? existedUser.password : dummyHash;
+    const dummyHash = "$2a$10$abcdefghijklmnopqrstuvwxyzABC";
+    const targetHash = existedUser ? existedUser.password : dummyHash;
 
-        const isMatch = await bcrypt.compare(password, targetHash);
+    const isMatch = await bcrypt.compare(password, targetHash);
 
-        if (!existedUser || !isMatch) {
-            throw new AppError(401, "Invalid username or password");
+    if (!existedIp) {
+      existedIp = await LoginAttempt.create({
+        ipAddress: ip,
+        attemptCount: 0,
+        metadata: metadata,
+      });
+    }
+
+    if (existedUser && isMatch) {
+      await LoginAttempt.update(
+        {
+          attemptCount: 0,
+          blockedUntil: null,
+          lastAttempt: new Date(),
+          metadata: metadata,
+        },
+        { where: { ipAddress: ip } },
+      );
+
+      return {
+        id: existedUser.id,
+        username: existedUser.username,
+        email: existedUser.email,
+        createdAt: existedUser.createdAt,
+      };
+    }
+
+    if (
+      existedIp.blockedUntil &&
+      new Date() < new Date(existedIp.blockedUntil)
+    ) {
+      throw new AppError(
+        429,
+        "You have made too many incorrect login attempts. Please try again in 1 minute(s).",
+      );
+    }
+
+    if (
+      existedIp.blockedUntil &&
+      new Date() >= new Date(existedIp.blockedUntil)
+    ) {
+      await LoginAttempt.update(
+        {
+          attemptCount: 0,
+          blockedUntil: null,
+          metadata: metadata,
+        },
+        { where: { ipAddress: ip } },
+      );
+      existedIp.attemptCount = 0;
+      existedIp.blockedUntil = null;
+    }
+
+    const newAttemptCount = existedIp.attemptCount + 1;
+    const MAX_ATTEMPTS = 3;
+    if (newAttemptCount >= MAX_ATTEMPTS) {
+      const blockedUntil = new Date(Date.now() + 1 * 60 * 1000);
+      await LoginAttempt.update(
+        {
+          attemptCount: newAttemptCount,
+          blockedUntil: blockedUntil,
+          lastAttempt: new Date(),
+          metadata: metadata,
+        },
+        { where: { ipAddress: ip } },
+      );
+      throw new AppError(
+        429,
+        "You have made too many incorrect login attempts. Please try again in 1 minute(s).",
+      );
+    } else {
+      await LoginAttempt.update(
+        {
+          attemptCount: newAttemptCount,
+          lastAttempt: new Date(),
+          metadata: metadata,
+        },
+        { where: { ipAddress: ip } },
+      );
+      throw new AppError(401, "Invalid username or password");
+    }
+  },
+
+  async loginMultipleCredsPerRequest(data, ip, metadata) {
+    // Adding the Ip block, checking the ip first, then check user and password
+    let existedIp = await LoginAttempt.findOne({ where: { ipAddress: ip } });
+
+    if (!existedIp) {
+      existedIp = await LoginAttempt.create({
+        ipAddress: ip,
+        attemptCount: 0,
+        metadata: metadata,
+      });
+    }
+
+    if (
+      existedIp.blockedUntil &&
+      new Date() < new Date(existedIp.blockedUntil)
+    ) {
+      throw new AppError(
+        429,
+        "You have made too many incorrect login attempts. Please try again in 1 minute(s).",
+      );
+    }
+
+    if (
+      existedIp.blockedUntil &&
+      new Date() >= new Date(existedIp.blockedUntil)
+    ) {
+      await LoginAttempt.update(
+        {
+          attemptCount: 0,
+          blockedUntil: null,
+          metadata: metadata,
+        },
+        { where: { ipAddress: ip } },
+      );
+      existedIp.attemptCount = 0;
+      existedIp.blockedUntil = null;
+    }
+
+    const { username, password } = data;
+    const existedUser = await User.findOne({ where: { username: username } });
+
+    const dummyHash = "$2a$10$abcdefghijklmnopqrstuvwxyzABC";
+    const targetHash = existedUser ? existedUser.password : dummyHash;
+    let isMatch = false;
+
+    if (Array.isArray(password)) {
+      for (const pass of password) {
+        const matchFound = await bcrypt.compare(pass, targetHash);
+
+        if (matchFound) {
+          isMatch = true;
+          break;
         }
+      }
+    } else {
+      isMatch = await bcrypt.compare(password, targetHash);
+    }
 
-        return {
-            id: existedUser.id,
-            username: existedUser.username,
-            password: existedUser.password, // return password to create StayLoggedIn cookie
-            email: existedUser.email,
-            isStayLoggedIn: isStayLoggedIn
-        };
-    },
+    if (!existedUser || !isMatch) {
+      const newAttemptCount = existedIp.attemptCount + 1;
+      const MAX_ATTEMPTS = 3;
+      if (newAttemptCount >= MAX_ATTEMPTS) {
+        const blockedUntil = new Date(Date.now() + 1 * 60 * 1000);
+        await LoginAttempt.update(
+          {
+            attemptCount: newAttemptCount,
+            blockedUntil: blockedUntil,
+            lastAttempt: new Date(),
+            metadata: metadata,
+          },
+          { where: { ipAddress: ip } },
+        );
+        throw new AppError(
+          429,
+          "You have made too many incorrect login attempts. Please try again in 1 minute(s).",
+        );
+      } else {
+        await LoginAttempt.update(
+          {
+            attemptCount: newAttemptCount,
+            lastAttempt: new Date(),
+            metadata: metadata,
+          },
+          { where: { ipAddress: ip } },
+        );
+        throw new AppError(401, "Invalid username or password");
+      }
+    }
 
-    async generateFogotPasswordToken(data) {
-        const {username, email} = data;
+    await LoginAttempt.update(
+      {
+        attemptCount: 0,
+        blockedUntil: null,
+        lastAttempt: new Date(),
+        metadata: metadata,
+      },
+      { where: { ipAddress: ip } },
+    );
 
-        const existedUser = username ? await User.findOne({username}) : await User.findOne({email})
-        const token = crypto.randomBytes(32).toString('hex');
-        const tokenValue = crypto.createHash('sha256').update(token).digest('hex');
+    return {
+      id: existedUser.id,
+      username: existedUser.username,
+      email: existedUser.email,
+      createdAt: existedUser.createdAt,
+    };
+  },
 
-        if (!existedUser) {
-            throw new AppError(200, "Please check your email for a reset password link.");
-        }
+  async loginStayLoggedInCookie(data) {
+    const { username, password, "stay-logged-in": isStayLoggedIn } = data;
+    const existedUser = await User.findOne({ where: { username: username } });
 
-        await UserToken.create({
-            userId: existedUser.id,
-            tokenValue: tokenValue,
-            tokenType: 'password_reset',
-            expiresAt: new Date(Date.now() + 5 * 60 * 1000) // 5 minutes
-        });
-        return token;
-    }, 
-    async login2FASimpleBypass(data) {
-        const { username, password } = data;
-        const existedUser = await User.findOne({ where: { username: username } });
+    const dummyHash = "$2a$10$abcdefghijklmnopqrstuvwxyzABC";
+    const targetHash = existedUser ? existedUser.password : dummyHash;
 
-        const dummyHash = '$2a$10$abcdefghijklmnopqrstuvwxyzABC';
-        const targetHash = existedUser ? existedUser.password : dummyHash;
+    const isMatch = await bcrypt.compare(password, targetHash);
 
-        const isMatch = await bcrypt.compare(password, targetHash);
+    if (!existedUser || !isMatch) {
+      throw new AppError(401, "Invalid username or password");
+    }
 
-        if (!existedUser || !isMatch) {
-            throw new AppError(401, "Invalid username or password");
-        }
+    return {
+      id: existedUser.id,
+      username: existedUser.username,
+      password: existedUser.password, // return password to create StayLoggedIn cookie
+      email: existedUser.email,
+      isStayLoggedIn: isStayLoggedIn,
+    };
+  },
 
-        if (!existedUser.isEmailVerified) {
-            throw new AppError(403, "Please verify your email before logging in.");
-        }
+  async generateFogotPasswordToken(data) {
+    const { username, email } = data;
 
-        const otp = crypto.randomInt(100000, 999999);
-        const key = `otp:${existedUser.id}`;
+    const existedUser = username
+      ? await User.findOne({ username })
+      : await User.findOne({ email });
+    const token = crypto.randomBytes(32).toString("hex");
+    const tokenValue = crypto.createHash("sha256").update(token).digest("hex");
 
-        await redisClient.set(key, otp, { EX: 60 });
+    if (!existedUser) {
+      throw new AppError(
+        200,
+        "Please check your email for a reset password link.",
+      );
+    }
 
-        await sendEmail(existedUser.email, 'OTP Verification', `Your OTP is: ${otp}`);
-        
-        return {
-            id: existedUser.id,
-            username: existedUser.username,
-            email: existedUser.email
-        };
-    },
+    await UserToken.create({
+      userId: existedUser.id,
+      tokenValue: tokenValue,
+      tokenType: "password_reset",
+      expiresAt: new Date(Date.now() + 5 * 60 * 1000), // 5 minutes
+    });
 
-    async login2FABrokenLogic(data) {
-        const { username, password } = data;
-        const existedUser = await User.findOne({ where: { username: username } });
+    await sendEmail(
+      existedUser.email,
+      "Password Reset",
+      `Your password reset token is: ${token}`,
+    );
+    return token;
+  },
 
-        const dummyHash = '$2a$10$abcdefghijklmnopqrstuvwxyzABC';
-        const targetHash = existedUser ? existedUser.password : dummyHash;
+  async resetPasswordBrokenLogic(data) {
+    const {
+      username,
+      "new-password": newPassword,
+      "confirm-password": confirmPassword,
+      "temp-forgot-password-token": token,
+    } = data;
+  },
 
-        const isMatch = await bcrypt.compare(password, targetHash);
+  async login2FASimpleBypass(data) {
+    const { username, password } = data;
+    const existedUser = await User.findOne({ where: { username: username } });
 
-        if (!existedUser || !isMatch) {
-            throw new AppError(401, "Invalid username or password");
-        }
+    const dummyHash = "$2a$10$abcdefghijklmnopqrstuvwxyzABC";
+    const targetHash = existedUser ? existedUser.password : dummyHash;
 
-        if (!existedUser.isEmailVerified) {
-            throw new AppError(403, "Please verify your email before logging in.");
-        }
-       
-        return {
-            id: existedUser.id,
-            username: existedUser.username,
-            email: existedUser.email
-        };
-    },
+    const isMatch = await bcrypt.compare(password, targetHash);
 
-    async verify2FAOtp(userId, otp) {
-        const storedOtp = await redisClient.get(`otp:${userId}`);
+    if (!existedUser || !isMatch) {
+      throw new AppError(401, "Invalid username or password");
+    }
 
-        if (!storedOtp) {
-            throw new AppError(400, 'OTP has expired');
-        }
+    if (!existedUser.isEmailVerified) {
+      throw new AppError(403, "Please verify your email before logging in.");
+    }
 
-        if (otp !== Number(storedOtp)) {
-            throw new AppError(400, 'Invalid OTP');
-        }
+    const otp = crypto.randomInt(100000, 999999);
+    const key = `otp:${existedUser.id}`;
 
-        const user = await User.findByPk(userId);
-        if (!user) {
-            throw new AppError(404, 'User not found');
-        }
+    await redisClient.set(key, otp, { EX: 60 });
 
-        await redisClient.del(`otp:${userId}`);
+    await sendEmail(
+      existedUser.email,
+      "OTP Verification",
+      `Your OTP is: ${otp}`,
+    );
 
-        return {
-            id: user.id,
-            username: user.username,
-            email: user.email,
-            createdAt: user.createdAt
-        };
-    },
+    return {
+      id: existedUser.id,
+      username: existedUser.username,
+      email: existedUser.email,
+    };
+  },
 
-    async brokenVerify2FAOtp(username, otp) {
-        const storedOtp = await redisClient.get(`otp:${username}`);
+  async login2FABrokenLogic(data) {
+    const { username, password } = data;
+    const existedUser = await User.findOne({ where: { username: username } });
 
-        if (!storedOtp) {
-            throw new AppError(400, 'OTP has expired');
-        }
+    const dummyHash = "$2a$10$abcdefghijklmnopqrstuvwxyzABC";
+    const targetHash = existedUser ? existedUser.password : dummyHash;
 
-        if (otp !== Number(storedOtp)) {
-            throw new AppError(400, 'Invalid OTP');
-        }
+    const isMatch = await bcrypt.compare(password, targetHash);
 
-        const user = await User.findOne({ where: { username: username } });
-        if (!user) {
-            throw new AppError(404, 'User not found');
-        }
+    if (!existedUser || !isMatch) {
+      throw new AppError(401, "Invalid username or password");
+    }
 
-        await redisClient.del(`otp:${username}`);
+    if (!existedUser.isEmailVerified) {
+      throw new AppError(403, "Please verify your email before logging in.");
+    }
 
-        return {
-            id: user.id,
-            username: user.username,
-            email: user.email,
-            createdAt: user.createdAt
-        };
-    },
+    return {
+      id: existedUser.id,
+      username: existedUser.username,
+      email: existedUser.email,
+    };
+  },
 
+  async verify2FAOtp(userId, otp) {
+    const storedOtp = await redisClient.get(`otp:${userId}`);
+
+    if (!storedOtp) {
+      throw new AppError(400, "OTP has expired");
+    }
+
+    if (otp !== Number(storedOtp)) {
+      throw new AppError(400, "Invalid OTP");
+    }
+
+    const user = await User.findByPk(userId);
+    if (!user) {
+      throw new AppError(404, "User not found");
+    }
+
+    await redisClient.del(`otp:${userId}`);
+
+    return {
+      id: user.id,
+      username: user.username,
+      email: user.email,
+      createdAt: user.createdAt,
+    };
+  },
+
+  async brokenVerify2FAOtp(username, otp) {
+    const storedOtp = await redisClient.get(`otp:${username}`);
+
+    if (!storedOtp) {
+      throw new AppError(400, "OTP has expired");
+    }
+
+    if (otp !== Number(storedOtp)) {
+      throw new AppError(400, "Invalid OTP");
+    }
+
+    const user = await User.findOne({ where: { username: username } });
+    if (!user) {
+      throw new AppError(404, "User not found");
+    }
+
+    await redisClient.del(`otp:${username}`);
+
+    return {
+      id: user.id,
+      username: user.username,
+      email: user.email,
+      createdAt: user.createdAt,
+    };
+  },
 };
 
 module.exports = authService;

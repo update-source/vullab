@@ -1,37 +1,40 @@
-const { sequelize, DataTypes, Model } = require('../../config/database.config');
+const { sequelize, DataTypes, Model } = require("../../config/database.config");
 
-class OrderStatus extends Model { }
+class OrderStatus extends Model {}
 
-OrderStatus.init({
+OrderStatus.init(
+  {
     id: {
-        type: DataTypes.UUID,
-        defaultValue: DataTypes.UUIDV4,
-        primaryKey: true
+      type: DataTypes.UUID,
+      defaultValue: DataTypes.UUIDV4,
+      primaryKey: true,
     },
     code: {
-        type: DataTypes.STRING(50),
-        allowNull: false,
-        unique: true
+      type: DataTypes.STRING(50),
+      allowNull: false,
+      unique: true,
     },
     displayName: {
-        type: DataTypes.STRING(100),
-        allowNull: false
+      type: DataTypes.STRING(100),
+      allowNull: false,
     },
     description: {
-        type: DataTypes.TEXT
+      type: DataTypes.TEXT,
     },
     color: {
-        type: DataTypes.STRING(7) 
+      type: DataTypes.STRING(7),
     },
     displayOrder: {
-        type: DataTypes.INTEGER,
-        defaultValue: 0
-    }
-}, {
+      type: DataTypes.INTEGER,
+      defaultValue: 0,
+    },
+  },
+  {
     sequelize,
-    tableName: 'order_status',
+    tableName: "order_status",
     underscored: true,
-    timestamps: false 
-});
+    timestamps: false,
+  },
+);
 
 module.exports = { OrderStatus };

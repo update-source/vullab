@@ -1,12 +1,15 @@
-const express = require('express');
+const express = require("express");
 const router = express.Router();
-const { authController } = require('../../controllers/v1');
-const { otpRules,
-        loginRules,
-        registerRules,
-        handleValidation,
-        forgotPasswordRules,
-        requirePendingOtpSession } = require('../../middlewares');
+const { authController } = require("../../controllers/v1");
+const {
+  otpRules,
+  loginRules,
+  registerRules,
+  handleValidation,
+  generateForgotPasswordTokenRules,
+  resetPasswordBrokenLogicRules,
+  requirePendingOtpSession,
+} = require("../../middlewares");
 
 /**
  * @swagger
@@ -26,7 +29,12 @@ const { otpRules,
  *       400:
  *         description: Invalid credentials
  */
-router.post('/enum/different-responses', loginRules, handleValidation, authController.loginEnumDifferent);
+router.post(
+  "/enum/different-responses",
+  loginRules,
+  handleValidation,
+  authController.loginEnumDifferent,
+);
 
 /**
  * @swagger
@@ -44,7 +52,12 @@ router.post('/enum/different-responses', loginRules, handleValidation, authContr
  *       302:
  *         description: Redirect to profile on success
  */
-router.post('/enum/subtle-responses', loginRules, handleValidation, authController.loginEnumSubtle);
+router.post(
+  "/enum/subtle-responses",
+  loginRules,
+  handleValidation,
+  authController.loginEnumSubtle,
+);
 
 /**
  * @swagger
@@ -62,7 +75,12 @@ router.post('/enum/subtle-responses', loginRules, handleValidation, authControll
  *       302:
  *         description: Redirect to profile on success
  */
-router.post('/enum/timing-responses', loginRules, handleValidation, authController.loginEnumTiming);
+router.post(
+  "/enum/timing-responses",
+  loginRules,
+  handleValidation,
+  authController.loginEnumTiming,
+);
 
 /**
  * @swagger
@@ -80,7 +98,12 @@ router.post('/enum/timing-responses', loginRules, handleValidation, authControll
  *       302:
  *         description: Redirect to profile on success
  */
-router.post('/enum/account-lock', loginRules, handleValidation, authController.loginEnumViaAccountLock)
+router.post(
+  "/enum/account-lock",
+  loginRules,
+  handleValidation,
+  authController.loginEnumViaAccountLock,
+);
 
 /**
  * @swagger
@@ -98,7 +121,12 @@ router.post('/enum/account-lock', loginRules, handleValidation, authController.l
  *       302:
  *         description: Redirect to profile on success
  */
-router.post('/brute-force/broken-ip-block', loginRules, handleValidation, authController.loginBrokenIpBlock);
+router.post(
+  "/brute-force/broken-ip-block",
+  loginRules,
+  handleValidation,
+  authController.loginBrokenIpBlock,
+);
 
 /**
  * @swagger
@@ -108,9 +136,9 @@ router.post('/brute-force/broken-ip-block', loginRules, handleValidation, authCo
  *     summary: Login accepting multiple credentials per request
  *     description: |
  *       This endpoint has a critical vulnerability that allows brute-forcing multiple passwords in a single request.
- *       
+ *
  *       **Vulnerability:** The password field accepts both string and array of strings. Validation doesn't reject arrays.
- *       
+ *
  *       **Normal request (1 password):**
  *       ```json
  *       {
@@ -118,11 +146,11 @@ router.post('/brute-force/broken-ip-block', loginRules, handleValidation, authCo
  *         "password": "Password123!"
  *       }
  *       ```
- *       
+ *
  *       **Exploit request (100 passwords in 1 request):**
  *       ```json
  *       {
- *         "username": "carlos", 
+ *         "username": "carlos",
  *         "password": [
  *           "password123",
  *           "admin123",
@@ -132,8 +160,8 @@ router.post('/brute-force/broken-ip-block', loginRules, handleValidation, authCo
  *         ]
  *       }
  *       ```
- *       
- *       **Impact:** Bypasses rate limiting since it counts as 1 attempt, not 100. The server will try each 
+ *
+ *       **Impact:** Bypasses rate limiting since it counts as 1 attempt, not 100. The server will try each
  *       password in the array until finding a match.
  *     requestBody:
  *       required: true
@@ -164,8 +192,18 @@ router.post('/brute-force/broken-ip-block', loginRules, handleValidation, authCo
  *       429:
  *         description: Too many failed attempts from this IP
  */
-router.post('/brute-force/multiple-credentials-per-request', loginRules, handleValidation, authController.loginMultipleCredsPerRequest);
-router.post('/password-reset-broken-logic', forgotPasswordRules, handleValidation, authController.passwordResetBrokenLogic);
+router.post(
+  "/brute-force/multiple-credentials-per-request",
+  loginRules,
+  handleValidation,
+  authController.loginMultipleCredsPerRequest,
+);
+router.post(
+  "/password-reset-broken-logic",
+  generateForgotPasswordTokenRules,
+  handleValidation,
+  authController.passwordResetBrokenLogic,
+);
 /**
  * @swagger
  * /api/v1/auth/brute-force/stay-logged-in-cookie:
@@ -174,15 +212,15 @@ router.post('/password-reset-broken-logic', forgotPasswordRules, handleValidatio
  *     summary: Login with stay-logged-in cookie (Vulnerable to offline brute-force)
  *     description: |
  *       This endpoint implements a "stay logged in" feature that stores user credentials in a cookie.
- *       
+ *
  *       **Vulnerability:** The cookie contains base64-encoded username + MD5 password hash.
  *       MD5 is cryptographically broken and can be brute-forced offline.
- *       
+ *
  *       **How it works:**
  *       1. User logs in with `isStayLoggedIn: "on"`
  *       2. Server creates cookie: `base64(username + md5(password))`
  *       3. Cookie is sent to client with 5-minute expiry
- *       
+ *
  *       **Cookie format:**
  *       ```
  *       stay-logged-in = base64(username + md5_hash)
@@ -191,13 +229,13 @@ router.post('/password-reset-broken-logic', forgotPasswordRules, handleValidatio
  *                ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
  *                         32-char MD5 hash
  *       ```
- *       
+ *
  *       **Attack scenario:**
  *       1. Attacker intercepts the cookie
  *       2. Decodes base64 to get username + MD5 hash
  *       3. Brute-forces MD5 hash offline (very fast)
  *       4. Uses cracked password to login
- *       
+ *
  *       **Why it's vulnerable:**
  *       - MD5 is fast to compute (millions of hashes/second)
  *       - No salt used
@@ -236,8 +274,12 @@ router.post('/password-reset-broken-logic', forgotPasswordRules, handleValidatio
  *       401:
  *         description: Invalid credentials
  */
-router.post('/brute-force/stay-logged-in-cookie', loginRules, handleValidation, authController.loginStayLoggedInCookie);
-
+router.post(
+  "/brute-force/stay-logged-in-cookie",
+  loginRules,
+  handleValidation,
+  authController.loginStayLoggedInCookie,
+);
 
 /**
  * @swagger
@@ -256,7 +298,12 @@ router.post('/brute-force/stay-logged-in-cookie', loginRules, handleValidation, 
  *       302:
  *         description: Redirect to profile (bypassing OTP)
  */
-router.post('/2FA/simple-bypass', loginRules, handleValidation, authController.login2FASimpleBypass);
+router.post(
+  "/2FA/simple-bypass",
+  loginRules,
+  handleValidation,
+  authController.login2FASimpleBypass,
+);
 
 /**
  * @swagger
@@ -275,7 +322,12 @@ router.post('/2FA/simple-bypass', loginRules, handleValidation, authController.l
  *       302:
  *         description: Redirect to profile
  */
-router.post('/2FA/simple-bypass-ver2', loginRules, handleValidation, authController.login2FASimpleBypassVer2);
+router.post(
+  "/2FA/simple-bypass-ver2",
+  loginRules,
+  handleValidation,
+  authController.login2FASimpleBypassVer2,
+);
 
 /**
  * @swagger
@@ -284,11 +336,11 @@ router.post('/2FA/simple-bypass-ver2', loginRules, handleValidation, authControl
  *     tags: [V1 - Authentication (Vulnerable)]
  *     summary: 2FA login with broken logic vulnerability
  *     description: |
- *       This endpoint has a flawed 2FA implementation. After successful login, the OTP is generated 
+ *       This endpoint has a flawed 2FA implementation. After successful login, the OTP is generated
  *       based on the "verify" cookie value instead of the authenticated user.
- *       
+ *
  *       **Vulnerability:** Attacker can manipulate the "verify" cookie to generate OTP for another user.
- *       
+ *
  *       **Exploit flow:**
  *       1. Login with your own credentials → receive verify=your_username cookie
  *       2. Change cookie to verify=victim_username (using Burp)
@@ -306,7 +358,12 @@ router.post('/2FA/simple-bypass-ver2', loginRules, handleValidation, authControl
  *       401:
  *         description: Invalid credentials
  */
-router.post('/2FA/broken-logic', loginRules, handleValidation, authController.login2FABrokenLogic);
+router.post(
+  "/2FA/broken-logic",
+  loginRules,
+  handleValidation,
+  authController.login2FABrokenLogic,
+);
 
 /**
  * @swagger
@@ -329,7 +386,13 @@ router.post('/2FA/broken-logic', loginRules, handleValidation, authController.lo
  *       401:
  *         description: Invalid OTP
  */
-router.post('/2FA/verify-otp', requirePendingOtpSession, otpRules, handleValidation, authController.verify2FAOtp);
+router.post(
+  "/2FA/verify-otp",
+  requirePendingOtpSession,
+  otpRules,
+  handleValidation,
+  authController.verify2FAOtp,
+);
 
 /**
  * @swagger
@@ -339,10 +402,10 @@ router.post('/2FA/verify-otp', requirePendingOtpSession, otpRules, handleValidat
  *     summary: Verify OTP with broken logic (uses verify cookie)
  *     description: |
  *       This endpoint verifies OTP based on the "verify" cookie instead of the session.
- *       
- *       **Vulnerability:** The user identity is determined by the "verify" cookie which can be 
+ *
+ *       **Vulnerability:** The user identity is determined by the "verify" cookie which can be
  *       manipulated by the attacker.
- *       
+ *
  *       **Usage:** Send OTP in request body. The username is read from "verify" cookie.
  *     requestBody:
  *       required: true
@@ -356,7 +419,12 @@ router.post('/2FA/verify-otp', requirePendingOtpSession, otpRules, handleValidat
  *       400:
  *         description: Invalid OTP or missing verify cookie
  */
-router.post('/2FA/broken-verify-otp', otpRules, handleValidation, authController.brokenVerify2FAOtp);
+router.post(
+  "/2FA/broken-verify-otp",
+  otpRules,
+  handleValidation,
+  authController.brokenVerify2FAOtp,
+);
 
 /**
  * @swagger
@@ -370,6 +438,6 @@ router.post('/2FA/broken-verify-otp', otpRules, handleValidation, authController
  *       200:
  *         description: Logged out successfully
  */
-router.post('/logout', authController.logout);
+router.post("/logout", authController.logout);
 
 module.exports = router;

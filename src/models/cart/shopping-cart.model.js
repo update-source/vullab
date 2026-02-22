@@ -1,30 +1,33 @@
-const { sequelize, DataTypes, Model } = require('../../config/database.config');
+const { sequelize, DataTypes, Model } = require("../../config/database.config");
 
-class ShoppingCart extends Model { }
+class ShoppingCart extends Model {}
 
-ShoppingCart.init({
+ShoppingCart.init(
+  {
     id: {
-        type: DataTypes.UUID,
-        defaultValue: DataTypes.UUIDV4,
-        primaryKey: true
+      type: DataTypes.UUID,
+      defaultValue: DataTypes.UUIDV4,
+      primaryKey: true,
     },
     userId: {
-        type: DataTypes.UUID,
-        allowNull: false,
-        unique: true,
-        references: {
-            model: 'user',
-            key: 'id'
-        }
+      type: DataTypes.UUID,
+      allowNull: false,
+      unique: true,
+      references: {
+        model: "user",
+        key: "id",
+      },
     },
     expiresAt: {
-        type: DataTypes.DATE
-    }
-}, {
+      type: DataTypes.DATE,
+    },
+  },
+  {
     sequelize,
-    tableName: 'shopping_cart',
+    tableName: "shopping_cart",
     underscored: true,
-    timestamps: true
-});
+    timestamps: true,
+  },
+);
 
 module.exports = { ShoppingCart };

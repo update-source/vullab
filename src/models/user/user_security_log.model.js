@@ -1,40 +1,43 @@
-const { sequelize, DataTypes, Model } = require('../../config/database.config');
+const { sequelize, DataTypes, Model } = require("../../config/database.config");
 
 class UserSecurityLog extends Model {}
 
-UserSecurityLog.init({
+UserSecurityLog.init(
+  {
     id: {
-        type: DataTypes.UUID,
-        defaultValue: DataTypes.UUIDV4,
-        primaryKey: true
+      type: DataTypes.UUID,
+      defaultValue: DataTypes.UUIDV4,
+      primaryKey: true,
     },
     userId: {
-        type: DataTypes.UUID,
-        allowNull: true, // Allow null to track failed attempts for non-existing usernames
-        references: {
-            model: 'user',
-            key: 'id'
-        }
+      type: DataTypes.UUID,
+      allowNull: true, // Allow null to track failed attempts for non-existing usernames
+      references: {
+        model: "user",
+        key: "id",
+      },
     },
     eventType: {
-        type: DataTypes.ENUM('login_success', 'login_failed', 'password_changed'),
-        allowNull: false
+      type: DataTypes.ENUM("login_success", "login_failed", "password_changed"),
+      allowNull: false,
     },
     ipAddress: {
-        type: DataTypes.STRING(45)
+      type: DataTypes.STRING(45),
     },
     userAgent: {
-        type: DataTypes.TEXT
+      type: DataTypes.TEXT,
     },
     metadata: {
-        type: DataTypes.JSONB,
-        defaultValue: {}
-    } 
-}, {
+      type: DataTypes.JSONB,
+      defaultValue: {},
+    },
+  },
+  {
     sequelize,
-    tableName: 'user_security_log',
+    tableName: "user_security_log",
     underscored: true,
-    timestamps: true
-});
+    timestamps: true,
+  },
+);
 
 module.exports = { UserSecurityLog };

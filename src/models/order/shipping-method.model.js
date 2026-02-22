@@ -1,47 +1,50 @@
-const { sequelize, DataTypes, Model } = require('../../config/database.config');
+const { sequelize, DataTypes, Model } = require("../../config/database.config");
 
-class ShippingMethod extends Model { }
+class ShippingMethod extends Model {}
 
-ShippingMethod.init({
+ShippingMethod.init(
+  {
     id: {
-        type: DataTypes.UUID,
-        defaultValue: DataTypes.UUIDV4,
-        primaryKey: true
+      type: DataTypes.UUID,
+      defaultValue: DataTypes.UUIDV4,
+      primaryKey: true,
     },
     code: {
-        type: DataTypes.STRING(50),
-        allowNull: false,
-        unique: true
+      type: DataTypes.STRING(50),
+      allowNull: false,
+      unique: true,
     },
     name: {
-        type: DataTypes.STRING(100),
-        allowNull: false
+      type: DataTypes.STRING(100),
+      allowNull: false,
     },
     description: {
-        type: DataTypes.TEXT
+      type: DataTypes.TEXT,
     },
     price: {
-        type: DataTypes.DECIMAL(10, 2),
-        allowNull: false
+      type: DataTypes.DECIMAL(10, 2),
+      allowNull: false,
     },
     estimatedDaysMin: {
-        type: DataTypes.INTEGER,
-        allowNull: false
+      type: DataTypes.INTEGER,
+      allowNull: false,
     },
     estimatedDaysMax: {
-        type: DataTypes.INTEGER,
-        allowNull: false
+      type: DataTypes.INTEGER,
+      allowNull: false,
     },
     isActive: {
-        type: DataTypes.BOOLEAN,
-        defaultValue: true
-    }
-}, {
+      type: DataTypes.BOOLEAN,
+      defaultValue: true,
+    },
+  },
+  {
     sequelize,
-    tableName: 'shipping_method',
+    tableName: "shipping_method",
     underscored: true,
     timestamps: true,
-    updatedAt: false
-});
+    updatedAt: false,
+  },
+);
 
 module.exports = { ShippingMethod };

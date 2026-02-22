@@ -1,4 +1,4 @@
-const { sequelize, DataTypes, Model } = require('../../config/database.config');
+const { sequelize, DataTypes, Model } = require("../../config/database.config");
 
 /**
  * AuthToken Model - "Remember Me" persistent login tokens
@@ -13,71 +13,76 @@ const { sequelize, DataTypes, Model } = require('../../config/database.config');
  * References:
  *   https://paragonie.com/blog/2015/04/secure-authentication-php-with-long-term-persistence
  */
-class AuthToken extends Model { }
+class AuthToken extends Model {}
 
-AuthToken.init({
+AuthToken.init(
+  {
     id: {
-        type: DataTypes.INTEGER.UNSIGNED,
-        autoIncrement: true,
-        primaryKey: true
+      type: DataTypes.INTEGER.UNSIGNED,
+      autoIncrement: true,
+      primaryKey: true,
     },
 
     selector: {
-        type: DataTypes.CHAR(16),
-        allowNull: false,
-        comment: 'Public part of the token stored in cookie. Used to find the DB row.'
+      type: DataTypes.CHAR(16),
+      allowNull: false,
+      comment:
+        "Public part of the token stored in cookie. Used to find the DB row.",
     },
 
     hashedValidator: {
-        type: DataTypes.CHAR(64),
-        allowNull: false,
-        comment: 'SHA-256 hash of the validator. Plaintext validator lives only in the cookie.'
+      type: DataTypes.CHAR(64),
+      allowNull: false,
+      comment:
+        "SHA-256 hash of the validator. Plaintext validator lives only in the cookie.",
     },
 
     userId: {
-        type: DataTypes.UUID,
-        allowNull: false,
-        references: {
-            model: 'user',
-            key: 'id'
-        },
-        comment: 'Owner of this persistent session token'
+      type: DataTypes.UUID,
+      allowNull: false,
+      references: {
+        model: "user",
+        key: "id",
+      },
+      comment: "Owner of this persistent session token",
     },
 
     expires: {
-        type: DataTypes.DATE,
-        allowNull: false,
-        comment: 'Token expiry datetime'
+      type: DataTypes.DATE,
+      allowNull: false,
+      comment: "Token expiry datetime",
     },
 
     ipAddress: {
-        type: DataTypes.STRING(45),
-        allowNull: true,
-        comment: 'IP address that created this token'
+      type: DataTypes.STRING(45),
+      allowNull: true,
+      comment: "IP address that created this token",
     },
 
     userAgent: {
-        type: DataTypes.TEXT,
-        allowNull: true,
-        comment: 'User-Agent string that created this token'
-    }
-}, {
+      type: DataTypes.TEXT,
+      allowNull: true,
+      comment: "User-Agent string that created this token",
+    },
+  },
+  {
     sequelize,
-    tableName: 'auth_token',
+    tableName: "auth_token",
     underscored: true,
     timestamps: true,
     indexes: [
-        {
-            unique: true,
-            fields: ['selector']
-        },
-        {
-            fields: ['expires']
-        },
-        {
-            fields: ['user_id']
-        }
-    ]
-});
+      {
+        unique: true,
+        fields: ["selector"],
+      },
+      {
+        fields: ["expires"],
+      },
+      {
+        fields: ["user_id"],
+      },
+    ],
+  },
+);
 
 module.exports = { AuthToken };

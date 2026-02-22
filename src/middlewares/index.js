@@ -1,24 +1,33 @@
-const { registerRules, loginRules, otpRules, forgotPasswordRules } = require('./auth-validation.middleware');
-const { requireAuthSession,
-    resolveCookieByBase64,
-    resolveCookieIdentity,
-    requirePendingOtpSession,
-    requireAuthSessionOrCookie,
-    requireAuthSessionIgnoreStage } = require('./auth-session.middleware');
-const errorHandler = require('./error.middleware');
-const handleValidation = require('./validation.middleware');
+const {
+  registerRules,
+  loginRules,
+  otpRules,
+  generateForgotPasswordTokenRules,
+  resetPasswordBrokenLogicRules,
+} = require("./auth-validation.middleware");
+const {
+  requireAuthSession,
+  resolveCookieByBase64,
+  resolveCookieIdentity,
+  requirePendingOtpSession,
+  requireAuthSessionOrCookie,
+  requireAuthSessionIgnoreStage,
+} = require("./auth-session.middleware");
+const errorHandler = require("./error.middleware");
+const handleValidation = require("./validation.middleware");
 
 module.exports = {
-    otpRules,
-    loginRules,
-    errorHandler,
-    registerRules,
-    handleValidation,
-    forgotPasswordRules,
-    requireAuthSession,
-    resolveCookieByBase64,
-    resolveCookieIdentity,
-    requirePendingOtpSession,
-    requireAuthSessionOrCookie,
-    requireAuthSessionIgnoreStage,
+  otpRules,
+  loginRules,
+  errorHandler,
+  registerRules,
+  handleValidation,
+  generateForgotPasswordTokenRules,
+  resetPasswordBrokenLogicRules,
+  requireAuthSession,
+  resolveCookieByBase64,
+  resolveCookieIdentity,
+  requirePendingOtpSession,
+  requireAuthSessionOrCookie,
+  requireAuthSessionIgnoreStage,
 };

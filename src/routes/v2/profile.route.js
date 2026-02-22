@@ -1,7 +1,11 @@
-const express = require('express');
+const express = require("express");
 const router = express.Router();
-const { profileController } = require('../../controllers/v2');
-const { requireAuthSession, requireAuthSessionOrCookie, resolveCookieIdentity } = require('../../middlewares');
+const { profileController } = require("../../controllers/v2");
+const {
+  requireAuthSession,
+  requireAuthSessionOrCookie,
+  resolveCookieIdentity,
+} = require("../../middlewares");
 
 /**
  * @swagger
@@ -29,7 +33,7 @@ const { requireAuthSession, requireAuthSessionOrCookie, resolveCookieIdentity } 
  *       403:
  *         description: Forbidden - session stage not valid
  */
-router.get('/', requireAuthSession, profileController.getProfile);
+router.get("/", requireAuthSession, profileController.getProfile);
 
 /**
  * @swagger
@@ -80,7 +84,11 @@ router.get('/', requireAuthSession, profileController.getProfile);
  *           - Validator mismatch (all tokens revoked — possible theft)
  *           - Token expired
  */
-router.get('/cookie', requireAuthSessionOrCookie, resolveCookieIdentity, profileController.getProfile);
-
+router.get(
+  "/cookie",
+  requireAuthSessionOrCookie,
+  resolveCookieIdentity,
+  profileController.getProfile,
+);
 
 module.exports = router;
