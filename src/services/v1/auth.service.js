@@ -1,4 +1,3 @@
-// V1 Service - Will contain vulnerable logic
 const {
   User,
   LoginAttempt,
@@ -360,10 +359,8 @@ const authService = {
     const { username, email } = data;
 
     const existedUser = username
-      ? await User.findOne({ username })
-      : await User.findOne({ email });
-    const token = crypto.randomBytes(32).toString("hex");
-    const tokenValue = crypto.createHash("sha256").update(token).digest("hex");
+      ? await User.findOne({ where: { username } })
+      : await User.findOne({ where: { email } });
 
     if (!existedUser) {
       throw new AppError(
@@ -371,6 +368,9 @@ const authService = {
         "Please check your email for a reset password link.",
       );
     }
+
+    const token = crypto.randomBytes(32).toString("hex");
+    const tokenValue = crypto.createHash("sha256").update(token).digest("hex");
 
     await UserToken.create({
       userId: existedUser.id,
@@ -384,7 +384,6 @@ const authService = {
       "Password Reset",
       `Your password reset token is: ${token}`,
     );
-    return token;
   },
 
   async resetPasswordBrokenLogic(data) {
@@ -394,6 +393,31 @@ const authService = {
       "confirm-password": confirmPassword,
       "temp-forgot-password-token": token,
     } = data;
+
+    const existedUser = await User.findOne({ where: { username: username } });
+    // I delete this bc the token is not used in the lab
+    // const tokenValue = crypto.createHash("sha256").update(token).digest("hex");
+
+    // const existedToken = await UserToken.findOne({
+    //   where: { tokenValue: tokenValue, tokenType: "password_reset" },
+    // });
+
+    // if (existedToken && existedToken.expiresAt <= Date.now()) {
+    //   await UserToken.destroy({ where: { tokenValue: tokenValue } });
+    //   throw new AppError(401, "Token is invalid or expired");
+    // }
+
+    // if (!existedUser || !existedToken) {
+    //   throw new AppError(401, "Token is invalid or expired");
+    // }
+
+    const saltRounds = 10;
+    const salt = await bcrypt.genSalt(saltRounds);
+    const hashedPassword = await bcrypt.hash(newPassword, salt);
+
+    existedUser.password = hashedPassword;
+    await existedUser.save();
+    // await UserToken.destroy({ where: { tokenValue: tokenValue } });
   },
 
   async login2FASimpleBypass(data) {

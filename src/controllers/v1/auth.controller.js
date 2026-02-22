@@ -145,7 +145,7 @@ const authController = {
     }
   },
 
-  async passwordResetBrokenLogic(req, res, next) {
+  async generateFogotPasswordToken(req, res, next) {
     try {
       await authService.generateFogotPasswordToken(req.body);
       return successResponse(
@@ -153,6 +153,15 @@ const authController = {
         null,
         "Please check your email for a reset password link.",
       );
+    } catch (error) {
+      next(error);
+    }
+  },
+
+  async resetPasswordBrokenLogic(req, res, next) {
+    try {
+      await authService.resetPasswordBrokenLogic(req.body);
+      return successResponse(res, null, "Password reset successfully");
     } catch (error) {
       next(error);
     }

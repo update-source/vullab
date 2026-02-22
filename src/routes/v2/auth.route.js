@@ -209,7 +209,7 @@ router.post(
  *                 example: "carlos"
  *               password:
  *                 type: string
- *                 example: "Password123!"
+ *                 example: "SecurePass123!"
  *               stay-logged-in:
  *                 type: string
  *                 enum: ["on", "off"]

@@ -1,16 +1,29 @@
 {
-    "snyk.advanced.autoSelectOrganization": true,
-    "snyk.advanced.organization": "82b10d57-6754-4c4d-94c2-10d48603b1c6",
-    "editor.formatOnSave": true,
-    "editor.defaultFormatter": "esbenp.prettier-vscode",
-    "editor.codeActionsOnSave": {
-        "source.fixAll.eslint": "explicit"
-    },
-    "eslint.useFlatConfig": true,
-    "[javascript]": {
-        "editor.defaultFormatter": "esbenp.prettier-vscode"
-    },
-    "[json]": {
-        "editor.defaultFormatter": "esbenp.prettier-vscode"
+  "snyk.advanced.autoSelectOrganization": true,
+  "snyk.advanced.organization": "82b10d57-6754-4c4d-94c2-10d48603b1c6",
+  "editor.formatOnSave": true,
+  "editor.defaultFormatter": "esbenp.prettier-vscode",
+  "editor.codeActionsOnSave": {
+    "source.fixAll.eslint": "always"
+  },
+  "eslint.useFlatConfig": true,
+  "[javascript]": {
+    "editor.defaultFormatter": "esbenp.prettier-vscode"
+  },
+  "[json]": {
+    "editor.defaultFormatter": "esbenp.prettier-vscode"
+  },
+  "sqltools.connections": [
+    {
+      "ssh": "Disabled",
+      "previewLimit": 50,
+      "server": "localhost",
+      "port": 5432,
+      "driver": "PostgreSQL",
+      "database": "vulnerable_auth_db",
+      "username": "postgres",
+      "password": "postgres",
+      "name": "vunlab"
     }
+  ]
 }

@@ -176,11 +176,11 @@ router.post(
  *               password:
  *                 oneOf:
  *                   - type: string
- *                     example: "Password123!"
+ *                     example: "SecurePass123!"
  *                   - type: array
  *                     items:
  *                       type: string
- *                     example: ["password123", "admin123", "Pass@123", "Secret123!", "test1234"]
+ *                     example: ["SecurePass123!", "admin123", "Pass@123", "Secret123!", "test1234"]
  *             required:
  *               - username
  *               - password
@@ -197,12 +197,6 @@ router.post(
   loginRules,
   handleValidation,
   authController.loginMultipleCredsPerRequest,
-);
-router.post(
-  "/password-reset-broken-logic",
-  generateForgotPasswordTokenRules,
-  handleValidation,
-  authController.passwordResetBrokenLogic,
 );
 /**
  * @swagger
@@ -253,7 +247,7 @@ router.post(
  *                 example: "carlos"
  *               password:
  *                 type: string
- *                 example: "Password123!"
+ *                 example: "SecurePass123!"
  *               stay-logged-in:
  *                 type: string
  *                 enum: ["on", "off"]
@@ -280,6 +274,214 @@ router.post(
   handleValidation,
   authController.loginStayLoggedInCookie,
 );
+
+/**
+ * @swagger
+ * /api/v1/auth/password-reset-broken-logic:
+ *   post:
+ *     tags: [V1 - Authentication (Vulnerable)]
+ *     summary: Generate password reset token (Vulnerable - Broken Logic)
+ *     description: |
+ *       Generates a password reset token and sends it to the user's email.
+ *
+ *       **Vulnerability: Always returns HTTP 200 regardless of user existence (prevents enumeration,
+ *       but combined with the broken reset step creates full account takeover)**
+ *
+ *       **How it works (correct order):**
+ *       1. Client sends `username` and/or `email`
+ *       2. Server looks up user by `username` (priority) or `email`
+ *       3. If user **does NOT exist** → throw `AppError(200, "Please check your email...")` → returns 200, nothing saved to DB
+ *       4. If user **exists** → generate raw token: `crypto.randomBytes(32).toString('hex')`
+ *       5. Hash token: `sha256(rawToken)` → save to `user_tokens` table (linked to user)
+ *       6. Email the **raw token** to the user
+ *
+ *       **Why always 200?** To prevent username/email enumeration — attacker cannot
+ *       distinguish between "user not found" and "email sent" from the response.
+ *
+ *       **The real vulnerability is in the reset step** (`/reset`), where
+ *       the token is never validated — so this generation step becomes irrelevant.
+ *       An attacker can skip this step entirely and reset any account directly.
+ *
+ *       **At least one of `username` or `email` is required.**
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         application/json:
+ *           schema:
+ *             type: object
+ *             properties:
+ *               username:
+ *                 type: string
+ *                 minLength: 3
+ *                 maxLength: 50
+ *                 example: "carlos"
+ *                 description: Username of the account (optional if email is provided)
+ *               email:
+ *                 type: string
+ *                 format: email
+ *                 example: "carlos@example.com"
+ *                 description: Email of the account (optional if username is provided)
+ *               forgot-password:
+ *                 type: boolean
+ *                 example: true
+ *                 description: Must be true to trigger the flow
+ *             required:
+ *               - forgot-password
+ *           examples:
+ *             by_username:
+ *               summary: Request by username
+ *               value:
+ *                 username: "carlos"
+ *                 forgot-password: true
+ *             by_email:
+ *               summary: Request by email
+ *               value:
+ *                 email: "carlos@example.com"
+ *                 forgot-password: true
+ *     responses:
+ *       200:
+ *         description: |
+ *           Always returns 200 regardless of whether the user exists.
+ *           If the user exists, a reset token is emailed.
+ *           If not, no email is sent but the response is identical.
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 status:
+ *                   type: string
+ *                   example: "success"
+ *                 message:
+ *                   type: string
+ *                   example: "Please check your email for a reset password link."
+ *       400:
+ *         description: Validation error (missing required fields or invalid format)
+ */
+router.post(
+  "/password-reset-broken-logic",
+  generateForgotPasswordTokenRules,
+  handleValidation,
+  authController.generateFogotPasswordToken,
+);
+
+/**
+ * @swagger
+ * /api/v1/auth/password-reset-broken-logic/reset:
+ *   post:
+ *     tags: [V1 - Authentication (Vulnerable)]
+ *     summary: Reset password with broken token validation (Vulnerable)
+ *     description: |
+ *       Resets the user's password. The token in the request body is **NOT validated**.
+ *
+ *       **Vulnerability: Token validation is completely disabled**
+ *
+ *       The reset token logic is intentionally commented out in the service:
+ *       - The server does **not** check if the token exists in the database
+ *       - The server does **not** check if the token belongs to the target user
+ *       - The server does **not** check if the token has expired
+ *       - `temp-forgot-password-token` only needs to be present in the body (any string value works)
+ *
+ *       **Exploit flow:**
+ *       1. Attacker does NOT need to request a reset token first
+ *       2. Send a POST request with any target `username`
+ *       3. Set new password in body
+ *       4. Pass any string as `temp-forgot-password-token`
+ *       5. Server resets the password without any token verification → **Account takeover**
+ *
+ *       **Example exploit request:**
+ *       ```json
+ *       {
+ *         "username": "victim",
+ *         "new-password": "Hacked@123",
+ *         "confirm-password": "Hacked@123",
+ *         "temp-forgot-password-token": "anything"
+ *       }
+ *       ```
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         application/json:
+ *           schema:
+ *             type: object
+ *             required:
+ *               - username
+ *               - new-password
+ *               - confirm-password
+ *               - temp-forgot-password-token
+ *             properties:
+ *               username:
+ *                 type: string
+ *                 minLength: 3
+ *                 maxLength: 50
+ *                 example: "carlos"
+ *                 description: Username of the account to reset
+ *               new-password:
+ *                 type: string
+ *                 format: password
+ *                 example: "NewSecure@123"
+ *                 description: New password (min 8 chars, must include upper, lower, number, symbol)
+ *               confirm-password:
+ *                 type: string
+ *                 format: password
+ *                 example: "NewSecure@123"
+ *                 description: Must match new-password
+ *               temp-forgot-password-token:
+ *                 type: string
+ *                 example: "anyvalueworks"
+ *                 description: |
+ *                   Reset token from the email. **Vulnerable:** any non-empty string is accepted
+ *                   because server-side token validation is completely disabled.
+ *           examples:
+ *             normal_reset:
+ *               summary: Normal user (with their own token from email)
+ *               value:
+ *                 username: "carlos"
+ *                 new-password: "NewPass@123"
+ *                 confirm-password: "NewPass@123"
+ *                 temp-forgot-password-token: "real-token-from-email"
+ *             exploit_reset:
+ *               summary: Attacker reset (no valid token needed)
+ *               value:
+ *                 username: "victim"
+ *                 new-password: "Hacked@123"
+ *                 confirm-password: "Hacked@123"
+ *                 temp-forgot-password-token: "anything"
+ *     responses:
+ *       200:
+ *         description: Password reset successfully
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 status:
+ *                   type: string
+ *                   example: "success"
+ *                 message:
+ *                   type: string
+ *                   example: "Password reset successfully"
+ *       400:
+ *         description: Validation error (passwords don't match, weak password, missing fields)
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 status:
+ *                   type: string
+ *                   example: "error"
+ *                 message:
+ *                   type: string
+ *                   example: "Passwords do not match"
+ */
+router.post(
+  "/password-reset-broken-logic/reset",
+  resetPasswordBrokenLogicRules,
+  handleValidation,
+  authController.resetPasswordBrokenLogic,
+);
+
 
 /**
  * @swagger

@@ -79,16 +79,14 @@ const otpRules = [
 
 const generateForgotPasswordTokenRules = [
   body("username")
+    .optional()
     .trim()
-    .notEmpty()
-    .withMessage("Username is required")
     .isLength({ min: 3, max: 50 })
     .withMessage("Username must be between 3 and 50 characters"),
 
   body("email")
+    .optional()
     .trim()
-    .notEmpty()
-    .withMessage("Email is required")
     .isEmail()
     .withMessage("Invalid email address")
     .normalizeEmail(),
@@ -150,10 +148,11 @@ const resetPasswordBrokenLogicRules = [
     return true;
   }),
 
-  // Token must be present in query string (value can be empty — intentional broken logic)
-  query("temp-forgot-password-token")
+  body("temp-forgot-password-token")
     .exists()
-    .withMessage("temp-forgot-password-token query param is required"),
+    .withMessage("temp-forgot-password-token is required")
+    .isString()
+    .withMessage("temp-forgot-password-token must be a string"),
 ];
 module.exports = {
   registerRules,

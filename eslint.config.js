@@ -1,5 +1,6 @@
 const js = require('@eslint/js');
 const prettier = require('eslint-config-prettier');
+const simpleImportSort = require('eslint-plugin-simple-import-sort');
 
 module.exports = [
   js.configs.recommended,
@@ -23,7 +24,26 @@ module.exports = [
         clearInterval: 'readonly',
       },
     },
+    plugins: {
+      'simple-import-sort': simpleImportSort,
+    },
     rules: {
+      // Import sorting: Node builtins → third-party → internal (../)
+      'simple-import-sort/imports': [
+        'warn',
+        {
+          groups: [
+            // Node.js built-ins (crypto, path, fs, etc.)
+            ['^(assert|buffer|child_process|cluster|console|constants|crypto|dgram|dns|domain|events|fs|http|https|module|net|os|path|perf_hooks|process|punycode|querystring|readline|repl|stream|string_decoder|sys|timers|tls|tty|url|util|v8|vm|wasi|worker_threads|zlib)(/.*)?$'],
+            // Third-party packages
+            ['^[^.]'],
+            // Internal: relative imports
+            ['^\\.'],
+          ],
+        },
+      ],
+      'simple-import-sort/exports': 'warn',
+
       // Code quality
       'no-unused-vars': ['warn', { varsIgnorePattern: '^_', argsIgnorePattern: '^_' }],
       'no-console': 'off',
