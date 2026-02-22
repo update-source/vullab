@@ -154,10 +154,53 @@ const resetPasswordBrokenLogicRules = [
     .isString()
     .withMessage("temp-forgot-password-token must be a string"),
 ];
+
+const resetSecurePasswordBrokenLogicRules = [
+  body("new-password")
+    .isStrongPassword({
+      minLength: 8,
+      minLowercase: 1,
+      minUppercase: 1,
+      minNumbers: 1,
+      minSymbols: 1,
+    })
+    .withMessage(
+      "Password must be at least 8 characters with uppercase and number",
+    ),
+
+  body("confirm-password")
+    .isStrongPassword({
+      minLength: 8,
+      minLowercase: 1,
+      minUppercase: 1,
+      minNumbers: 1,
+      minSymbols: 1,
+    })
+    .withMessage(
+      "Password must be at least 8 characters with uppercase and number",
+    ),
+
+  body().custom((value, { req }) => {
+    const { "new-password": newPassword, "confirm-password": confirmPassword } =
+      req.body;
+    if (newPassword !== confirmPassword) {
+      throw new Error("Passwords do not match");
+    }
+    return true;
+  }),
+
+  body("temp-forgot-password-token")
+    .exists()
+    .withMessage("temp-forgot-password-token is required")
+    .isString()
+    .withMessage("temp-forgot-password-token must be a string"),
+];
+
 module.exports = {
   registerRules,
   loginRules,
   otpRules,
   generateForgotPasswordTokenRules,
   resetPasswordBrokenLogicRules,
+  resetSecurePasswordBrokenLogicRules,
 };

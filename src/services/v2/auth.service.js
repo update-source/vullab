@@ -3,10 +3,12 @@ const {
   LoginAttempt,
   UserSecurityLog,
   AuthToken,
+  UserToken,
 } = require("../../models");
-const { Op } = require("sequelize");
+const { Op, where } = require("sequelize");
 const bcrypt = require("bcryptjs");
 const crypto = require("crypto");
+const { sendEmail } = require("../../utils/email");
 const { redisClient } = require("../../config/redis.config");
 const AppError = require("../../utils/AppError");
 
@@ -537,6 +539,69 @@ const authService = {
     return existedToken?.userId;
   },
 
+  async generateFogotPasswordToken(data) {
+    const { username, email } = data;
+
+    const existedUser = username
+      ? await User.findOne({ where: { username } })
+      : await User.findOne({ where: { email } });
+
+    if (!existedUser) {
+      throw new AppError(
+        200,
+        "Please check your email for a reset password link.",
+      );
+    }
+
+    const token = crypto.randomBytes(32).toString("hex");
+    const tokenValue = crypto.createHash("sha256").update(token).digest("hex");
+
+    await UserToken.create({
+      userId: existedUser.id,
+      tokenValue: tokenValue,
+      tokenType: "password_reset",
+      expiresAt: new Date(Date.now() + 5 * 60 * 1000), // 5 minutes
+    });
+
+    await sendEmail(
+      existedUser.email,
+      "Password Reset",
+      `Your password reset token is: ${token}`,
+    );
+  },
+
+  async resetSecurePasswordBrokenLogic(data) {
+    const {
+      "new-password": newPassword,
+      "temp-forgot-password-token": token,
+    } = data;
+
+    const tokenValue = crypto.createHash("sha256").update(token).digest("hex");
+
+    const existedToken = await UserToken.findOne({
+      where: { tokenValue: tokenValue, tokenType: "password_reset" },
+    });
+
+    if (!existedToken) {
+      throw new AppError(401, "Token is invalid or expired");
+    }
+
+    if (new Date(existedToken.expiresAt) <= new Date()) {
+      await UserToken.destroy({ where: { tokenValue: tokenValue } });
+      throw new AppError(401, "Token is invalid or expired");
+    }
+
+    const saltRounds = 10;
+    const salt = await bcrypt.genSalt(saltRounds);
+    const hashedPassword = await bcrypt.hash(newPassword, salt);
+
+    await User.update(
+      { password: hashedPassword },
+      { where: { id: existedToken.userId } },
+    );
+    await UserToken.destroy({ where: { tokenValue: tokenValue } });
+  },
+
   async loginSecure2FASimpleBypass(data) {
     const { username, password } = data;
     const existedUser = await User.findOne({ where: { username: username } });
@@ -558,6 +623,12 @@ const authService = {
     const key = `otp:${existedUser.id}`;
 
     await redisClient.set(key, otp, { EX: 60 }); // 60
+
+    await sendEmail(
+      existedUser.email,
+      "OTP Verification",
+      `Your OTP is: ${otp}`,
+    );
 
     return {
       id: existedUser.id,
@@ -587,6 +658,12 @@ const authService = {
     const key = `otp:${existedUser.id}`;
 
     await redisClient.set(key, otp, { EX: 60 });
+
+    await sendEmail(
+      existedUser.email,
+      "OTP Verification",
+      `Your OTP is: ${otp}`,
+    );
 
     return {
       id: existedUser.id,

@@ -6,6 +6,8 @@ const {
   loginRules,
   registerRules,
   handleValidation,
+  generateForgotPasswordTokenRules,
+  resetSecurePasswordBrokenLogicRules,
   requirePendingOtpSession,
 } = require("../../middlewares");
 
@@ -235,6 +237,188 @@ router.post(
   loginRules,
   handleValidation,
   authController.loginSecureStayLoggedInCookie,
+);
+
+/**
+ * @swagger
+ * /api/v2/auth/password-reset-broken-logic:
+ *   post:
+ *     tags: [V2 - Authentication (Secure)]
+ *     summary: Generate password reset token (Secure)
+ *     description: |
+ *       Generates a password reset token and sends it to the user's email.
+ *       This is the **secure version** — same flow as V1 but the reset step properly validates the token.
+ *
+ *       **How it works:**
+ *       1. Client sends `username` and/or `email`
+ *       2. Server looks up user by `username` (priority) or `email`
+ *       3. If user **does NOT exist** → returns 200 (no email sent) — prevents enumeration
+ *       4. If user **exists** → generate raw token: `crypto.randomBytes(32).toString('hex')`
+ *       5. Hash token: `sha256(rawToken)` → save to `user_tokens` table with 5-minute expiry
+ *       6. Email the **raw token** to the user
+ *
+ *       **Security note:** Always returns 200 regardless of user existence
+ *       to prevent username/email enumeration.
+ *
+ *       **At least one of `username` or `email` is required.**
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         application/json:
+ *           schema:
+ *             type: object
+ *             properties:
+ *               username:
+ *                 type: string
+ *                 minLength: 3
+ *                 maxLength: 50
+ *                 example: "carlos"
+ *                 description: Username of the account (optional if email is provided)
+ *               email:
+ *                 type: string
+ *                 format: email
+ *                 example: "carlos@example.com"
+ *                 description: Email of the account (optional if username is provided)
+ *               forgot-password:
+ *                 type: boolean
+ *                 example: true
+ *                 description: Must be true to trigger the flow
+ *             required:
+ *               - forgot-password
+ *           examples:
+ *             by_username:
+ *               summary: Request by username
+ *               value:
+ *                 username: "carlos"
+ *                 forgot-password: true
+ *             by_email:
+ *               summary: Request by email
+ *               value:
+ *                 email: "carlos@example.com"
+ *                 forgot-password: true
+ *     responses:
+ *       200:
+ *         description: |
+ *           Always returns 200 regardless of whether the user exists.
+ *           If the user exists, a reset token is emailed (valid for 5 minutes).
+ *           If not, no email is sent but the response is identical.
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 status:
+ *                   type: string
+ *                   example: "success"
+ *                 message:
+ *                   type: string
+ *                   example: "Please check your email for a reset password link."
+ *       400:
+ *         description: Validation error (missing required fields or invalid format)
+ */
+router.post(
+  "/password-reset-broken-logic",
+  generateForgotPasswordTokenRules,
+  handleValidation,
+  authController.generateFogotPasswordToken,
+);
+
+/**
+ * @swagger
+ * /api/v2/auth/password-reset-broken-logic/reset:
+ *   post:
+ *     tags: [V2 - Authentication (Secure)]
+ *     summary: Reset password with proper token validation (Secure)
+ *     description: |
+ *       Resets the user's password. Unlike V1, this endpoint **fully validates** the token.
+ *
+ *       **Security fixes compared to V1:**
+ *       - ✅ Token is looked up in the database and must exist
+ *       - ✅ Token expiry is strictly checked (5-minute window)
+ *       - ✅ Token is deleted after use (one-time use)
+ *       - ✅ Password is hashed only after token is confirmed valid (no wasted CPU)
+ *       - ✅ User identity comes from the token itself (not from user-supplied `username`)
+ *
+ *       **How it works:**
+ *       1. Hash submitted token: `sha256(token)` → lookup in `user_tokens` table
+ *       2. If token not found → `401 Token is invalid or expired`
+ *       3. If token expired → destroy token → `401 Token is invalid or expired`
+ *       4. Hash new password with bcrypt
+ *       5. Update user password via `token.userId` (not from request body)
+ *       6. Destroy token (prevent reuse)
+ *
+ *       **Usage flow:**
+ *       1. Call `POST /api/v2/auth/password-reset-broken-logic` to receive token via email
+ *       2. Submit the token from email in this endpoint's body
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         application/json:
+ *           schema:
+ *             type: object
+ *             required:
+ *               - new-password
+ *               - confirm-password
+ *               - temp-forgot-password-token
+ *             properties:
+ *               new-password:
+ *                 type: string
+ *                 format: password
+ *                 example: "NewSecure@123"
+ *                 description: New password (min 8 chars, must include upper, lower, number, symbol)
+ *               confirm-password:
+ *                 type: string
+ *                 format: password
+ *                 example: "NewSecure@123"
+ *                 description: Must match new-password
+ *               temp-forgot-password-token:
+ *                 type: string
+ *                 example: "a3f9c2b1d4e5f6a7b8c9d0e1f2a3b4c5d6e7f8a9b0c1d2e3f4a5b6c7d8e9f0a1"
+ *                 description: |
+ *                   The raw token received in the password reset email.
+ *                   **Secure:** Server validates this token against the database before allowing reset.
+ *           examples:
+ *             valid_reset:
+ *               summary: Reset with valid token from email
+ *               value:
+ *                 new-password: "NewSecure@123"
+ *                 confirm-password: "NewSecure@123"
+ *                 temp-forgot-password-token: "a3f9c2b1d4e5f6a7b8c9d0e1f2a3b4c5..."
+ *     responses:
+ *       200:
+ *         description: Password reset successfully
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 status:
+ *                   type: string
+ *                   example: "success"
+ *                 message:
+ *                   type: string
+ *                   example: "Password reset successfully"
+ *       401:
+ *         description: Token is invalid or expired
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 status:
+ *                   type: string
+ *                   example: "error"
+ *                 message:
+ *                   type: string
+ *                   example: "Token is invalid or expired"
+ *       400:
+ *         description: Validation error (passwords don't match, weak password, missing fields)
+ */
+router.post(
+  "/password-reset-broken-logic/reset",
+  resetSecurePasswordBrokenLogicRules,
+  handleValidation,
+  authController.resetSecurePasswordBrokenLogic,
 );
 
 /**

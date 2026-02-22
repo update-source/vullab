@@ -4,6 +4,7 @@ const {
   otpRules,
   generateForgotPasswordTokenRules,
   resetPasswordBrokenLogicRules,
+  resetSecurePasswordBrokenLogicRules,
 } = require("./auth-validation.middleware");
 const {
   requireAuthSession,
@@ -24,6 +25,7 @@ module.exports = {
   handleValidation,
   generateForgotPasswordTokenRules,
   resetPasswordBrokenLogicRules,
+  resetSecurePasswordBrokenLogicRules,
   requireAuthSession,
   resolveCookieByBase64,
   resolveCookieIdentity,

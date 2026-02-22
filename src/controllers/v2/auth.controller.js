@@ -138,6 +138,74 @@ const authController = {
     }
   },
 
+  // "remember me" cookies
+  // https://paragonie.com/blog/2015/04/secure-authentication-php-with-long-term-persistence#title.2
+  async loginSecureStayLoggedInCookie(req, res, next) {
+    try {
+      const REMEMBER_ME_DAYS = 30;
+      const REMEMBER_ME_MS = REMEMBER_ME_DAYS * 24 * 60 * 60 * 1000;
+      const user = await authService.loginSecureStayLoggedInCookie(req.body);
+      await regenerateSession(req.session);
+
+      if (user?.isStayLoggedIn === "on") {
+        const selector = crypto.randomBytes(8).toString("hex");
+        const validator = crypto.randomBytes(32).toString("hex");
+        const hashedValidator = crypto
+          .createHash("sha256")
+          .update(validator)
+          .digest("hex");
+
+        AuthToken.create({
+          selector: selector,
+          hashedValidator: hashedValidator,
+          userId: user.id,
+          expires: new Date(Date.now() + REMEMBER_ME_MS),
+          ipAddress: req.ip,
+          userAgent: req.useragent?.source,
+        });
+
+        const stayLoggedInCookie = selector + ":" + validator;
+
+        res.cookie("stay-logged-in", stayLoggedInCookie, {
+          httpOnly: true,
+          sameSite: "lax",
+          secure: process.env.NODE_ENV === "production",
+          maxAge: REMEMBER_ME_MS,
+        });
+      }
+
+      req.session.userId = user.id;
+      req.session.stage = "logged_in";
+      await req.session.save();
+
+      return res.redirect(302, "/api/v2/profile/cookie");
+    } catch (error) {
+      next(error);
+    }
+  },
+
+  async generateFogotPasswordToken(req, res, next) {
+    try {
+      await authService.generateFogotPasswordToken(req.body);
+      return successResponse(
+        res,
+        null,
+        "Please check your email for a reset password link.",
+      );
+    } catch (error) {
+      next(error);
+    }
+  },
+
+  async resetSecurePasswordBrokenLogic(req, res, next) {
+    try {
+      await authService.resetSecurePasswordBrokenLogic(req.body);
+      return successResponse(res, null, "Password reset successfully");
+    } catch (error) {
+      next(error);
+    }
+  },
+
   async loginSecure2FASimpleBypass(req, res, next) {
     try {
       const user = await authService.loginSecure2FASimpleBypass(req.body);
@@ -242,51 +310,6 @@ const authController = {
       await req.session.save();
 
       return res.redirect(302, "/api/v2/profile");
-    } catch (error) {
-      next(error);
-    }
-  },
-  // "remember me" cookies
-  // https://paragonie.com/blog/2015/04/secure-authentication-php-with-long-term-persistence#title.2
-  async loginSecureStayLoggedInCookie(req, res, next) {
-    try {
-      const REMEMBER_ME_DAYS = 30;
-      const REMEMBER_ME_MS = REMEMBER_ME_DAYS * 24 * 60 * 60 * 1000;
-      const user = await authService.loginSecureStayLoggedInCookie(req.body);
-      await regenerateSession(req.session);
-
-      if (user?.isStayLoggedIn === "on") {
-        const selector = crypto.randomBytes(8).toString("hex");
-        const validator = crypto.randomBytes(32).toString("hex");
-        const hashedValidator = crypto
-          .createHash("sha256")
-          .update(validator)
-          .digest("hex");
-
-        AuthToken.create({
-          selector: selector,
-          hashedValidator: hashedValidator,
-          userId: user.id,
-          expires: new Date(Date.now() + REMEMBER_ME_MS),
-          ipAddress: req.ip,
-          userAgent: req.useragent?.source,
-        });
-
-        const stayLoggedInCookie = selector + ":" + validator;
-
-        res.cookie("stay-logged-in", stayLoggedInCookie, {
-          httpOnly: true,
-          sameSite: "lax",
-          secure: process.env.NODE_ENV === "production",
-          maxAge: REMEMBER_ME_MS,
-        });
-      }
-
-      req.session.userId = user.id;
-      req.session.stage = "logged_in";
-      await req.session.save();
-
-      return res.redirect(302, "/api/v2/profile/cookie");
     } catch (error) {
       next(error);
     }
