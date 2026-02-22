@@ -57,8 +57,34 @@ const otpRules = [
     .toInt()
 ];
 
+const forgotPasswordRules = [
+    body('username')
+        .trim()
+        .notEmpty().withMessage('Username is required')
+        .isLength({ min: 3, max: 50 }).withMessage('Username must be between 3 and 50 characters'),
+
+    body('email')
+        .trim()
+        .notEmpty().withMessage('Email is required')
+        .isEmail().withMessage('Invalid email address')
+        .normalizeEmail(),
+
+    body().custom((value, { req }) => {
+        const { username, email } = req.body;
+        if (!username && !email) {
+            throw new Error('Username or email is required');
+        }
+        return true;
+    }),
+
+    body('forgot-password')
+        .exists().withMessage('Forgot password is required')
+        .isBoolean().withMessage('Forgot password must be a boolean')
+        .toBoolean()
+];
 module.exports = {
     registerRules,
     loginRules,
-    otpRules
+    otpRules,
+    forgotPasswordRules
 };

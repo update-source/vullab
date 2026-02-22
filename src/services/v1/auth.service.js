@@ -1,8 +1,9 @@
 // V1 Service - Will contain vulnerable logic
-const { User, LoginAttempt, UserSecurityLog } = require('../../models');
-const { Op, INTEGER } = require('sequelize');
+const { User, LoginAttempt, UserSecurityLog, UserToken } = require('../../models');
+const { Op } = require('sequelize');
 const bcrypt = require('bcryptjs');
 const AppError = require('../../utils/AppError');
+const { sendEmail } = require('../../utils/email');
 const { redisClient } = require('../../config/redis.config');
 const crypto = require('crypto');
 const authService = {
@@ -324,6 +325,25 @@ const authService = {
         };
     },
 
+    async generateFogotPasswordToken(data) {
+        const {username, email} = data;
+
+        const existedUser = username ? await User.findOne({username}) : await User.findOne({email})
+        const token = crypto.randomBytes(32).toString('hex');
+        const tokenValue = crypto.createHash('sha256').update(token).digest('hex');
+
+        if (!existedUser) {
+            throw new AppError(200, "Please check your email for a reset password link.");
+        }
+
+        await UserToken.create({
+            userId: existedUser.id,
+            tokenValue: tokenValue,
+            tokenType: 'password_reset',
+            expiresAt: new Date(Date.now() + 5 * 60 * 1000) // 5 minutes
+        });
+        return token;
+    }, 
     async login2FASimpleBypass(data) {
         const { username, password } = data;
         const existedUser = await User.findOne({ where: { username: username } });
@@ -346,6 +366,8 @@ const authService = {
 
         await redisClient.set(key, otp, { EX: 60 });
 
+        await sendEmail(existedUser.email, 'OTP Verification', `Your OTP is: ${otp}`);
+        
         return {
             id: existedUser.id,
             username: existedUser.username,
@@ -369,12 +391,7 @@ const authService = {
         if (!existedUser.isEmailVerified) {
             throw new AppError(403, "Please verify your email before logging in.");
         }
-
-        const otp = crypto.randomInt(100000, 999999);
-        const key = `otp:${existedUser.username}`; // Using username instead of user ID
-
-        await redisClient.set(key, otp, { EX: 60 });
-
+       
         return {
             id: existedUser.id,
             username: existedUser.username,

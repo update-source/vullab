@@ -2,6 +2,7 @@ const { authService } = require('../../services/v1');
 const AppError = require('../../utils/AppError');
 const { successResponse } = require('../../utils/response');
 const { regenerateSession, destroySession } = require('../../utils/session');
+const { sendEmail } = require('../../utils/email');
 const { redisClient } = require('../../config/redis.config');
 const crypto = require('crypto');
 const authController = {
@@ -131,6 +132,15 @@ const authController = {
         }
     },
 
+    async passwordResetBrokenLogic(req, res, next) {
+        try {
+            const result = await authService.generateFogotPasswordToken(req.body);
+            return successResponse(res, result, 'Please check your email for a reset password link.');
+        } catch (error) {
+            next(error);
+        }
+    },
+
     async login2FASimpleBypass(req, res, next) {
         try {
             const result = await authService.login2FASimpleBypass(req.body);
@@ -181,7 +191,7 @@ const authController = {
             // Vulnerable: OTP is generated for verifyUser (from cookie) instead of authenticated user
             const otp = crypto.randomInt(100000, 999999);
             await redisClient.set(`otp:${verifyUser}`, otp, { EX: 60 }); // Overwritten previous otp if any
-            //console.log(`Generated OTP for ${verifyUser}: ${otp}`); // In real app, send via email/SMS
+            await sendEmail(existedUser.email, 'OTP Verification', `Your OTP is: ${otp}`);
             req.session.userId = result.id;
             req.session.stage = 'pending';
             await req.session.save();

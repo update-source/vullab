@@ -1,10 +1,10 @@
-const { registerRules, loginRules, otpRules } = require('./auth-validation.middleware');
+const { registerRules, loginRules, otpRules, forgotPasswordRules } = require('./auth-validation.middleware');
 const { requireAuthSession,
-        resolveCookieByBase64,
-        resolveCookieIdentity,
-        requirePendingOtpSession,
-        requireAuthSessionOrCookie,
-        requireAuthSessionIgnoreStage } = require('./auth-session.middleware');
+    resolveCookieByBase64,
+    resolveCookieIdentity,
+    requirePendingOtpSession,
+    requireAuthSessionOrCookie,
+    requireAuthSessionIgnoreStage } = require('./auth-session.middleware');
 const errorHandler = require('./error.middleware');
 const handleValidation = require('./validation.middleware');
 
@@ -14,6 +14,7 @@ module.exports = {
     errorHandler,
     registerRules,
     handleValidation,
+    forgotPasswordRules,
     requireAuthSession,
     resolveCookieByBase64,
     resolveCookieIdentity,

@@ -5,6 +5,7 @@ const { otpRules,
         loginRules,
         registerRules,
         handleValidation,
+        forgotPasswordRules,
         requirePendingOtpSession } = require('../../middlewares');
 
 /**
@@ -164,7 +165,7 @@ router.post('/brute-force/broken-ip-block', loginRules, handleValidation, authCo
  *         description: Too many failed attempts from this IP
  */
 router.post('/brute-force/multiple-credentials-per-request', loginRules, handleValidation, authController.loginMultipleCredsPerRequest);
-
+router.post('/password-reset-broken-logic', forgotPasswordRules, handleValidation, authController.passwordResetBrokenLogic);
 /**
  * @swagger
  * /api/v1/auth/brute-force/stay-logged-in-cookie:
