@@ -196,6 +196,36 @@ const resetSecurePasswordBrokenLogicRules = [
     .withMessage("temp-forgot-password-token must be a string"),
 ];
 
+const changePasswordRules = [
+  body("username")
+    .trim()
+    .notEmpty()
+    .withMessage("Username is required")
+    .isLength({ min: 3, max: 50 })
+    .withMessage("Username must be between 3 and 50 characters"),
+
+  body("current-password")
+    .trim()
+    .notEmpty()
+    .withMessage("Current password is required")
+    .isLength({ min: 8 })
+    .withMessage("Current password must be at least 8 characters"),
+
+  body("new-password-1")
+    .trim()
+    .notEmpty()
+    .withMessage("New password is required")
+    .isLength({ min: 8 })
+    .withMessage("New password must be at least 8 characters"),
+
+  body("new-password-2")
+    .trim()
+    .notEmpty()
+    .withMessage("Confirm new password is required")
+    .isLength({ min: 8 })
+    .withMessage("Confirm new password must be at least 8 characters"),
+];
+
 module.exports = {
   registerRules,
   loginRules,
@@ -203,4 +233,5 @@ module.exports = {
   generateForgotPasswordTokenRules,
   resetPasswordBrokenLogicRules,
   resetSecurePasswordBrokenLogicRules,
+  changePasswordRules,
 };

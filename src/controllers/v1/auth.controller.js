@@ -145,6 +145,51 @@ const authController = {
     }
   },
 
+  async loginBruteViaPasswordChange(req, res, next) {
+    try {
+      const user = await authService.loginBruteViaPasswordChange(req.body);
+
+      await regenerateSession(req.session);
+
+      req.session.userId = user.id;
+      req.session.stage = "logged_in";
+      req.session.currentPasswordAttempt = 0;
+      await req.session.save();
+
+      return res.redirect(302, "/api/v1/profile");
+    } catch (error) {
+      next(error);
+    }
+  },
+
+  async changePasswordBruteForce(req, res, next) {
+    try {
+      const MAX_ATTEMPTS = 3;
+
+      if (req.session.currentPasswordAttempt >= MAX_ATTEMPTS) {
+        await destroySession(req.session);
+        throw new AppError(
+          429,
+          "Account locked due to too many incorrect attempts",
+        );
+      }
+      try {
+        await authService.changePasswordBruteForce(req.body);
+      } catch (error) {
+        if (error.shouldIncrementAttempt) {
+          req.session.currentPasswordAttempt =
+            (req.session.currentPasswordAttempt || 0) + 1;
+          await req.session.save();
+        }
+        throw error;
+      }
+      await destroySession(req.session);
+      return successResponse(res, null, "Password Changed");
+    } catch (error) {
+      next(error);
+    }
+  },
+
   async generateFogotPasswordToken(req, res, next) {
     try {
       await authService.generateFogotPasswordToken(req.body);

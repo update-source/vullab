@@ -9,7 +9,9 @@ const {
   generateForgotPasswordTokenRules,
   resetPasswordBrokenLogicRules,
   resetSecurePasswordBrokenLogicRules,
+  changePasswordRules,
   requirePendingOtpSession,
+  requireAuthSession
 } = require("../../middlewares");
 
 /**
@@ -874,6 +876,166 @@ router.post(
   otpRules,
   handleValidation,
   authController.brokenVerify2FAOtp,
+);
+
+/**
+ * @swagger
+ * /api/v1/auth/brute-force/password-change/login:
+ *   post:
+ *     tags: [V1 - Authentication (Vulnerable)]
+ *     summary: Login for password change brute-force lab (Vulnerable - session-based rate limit)
+ *     description: |
+ *       Login endpoint used in the "Password brute-force via password change" lab.
+ *
+ *       **Vulnerability: Rate limit is session-based**
+ *
+ *       After successful login, the session stores `currentPasswordAttempt = 0`.
+ *       The change-password rate limiter tracks failed attempts **per session**, not per target username.
+ *
+ *       **Exploit flow (bypass rate limit):**
+ *       1. Login as user A (wiener) → session A created with `currentPasswordAttempt = 0`
+ *       2. Use session A to attack user B (carlos) via `/brute-force/password-change`
+ *       3. After 2 failed attempts → counter reaches MAX
+ *       4. **Login again as user A** → new session, counter reset to 0
+ *       5. Continue brute-forcing carlos → repeat until carlos's password found
+ *
+ *       **Why it's vulnerable:**
+ *       - The rate limit counter is tied to the attacker's session, not the victim's account
+ *       - By refreshing the session (re-login), the counter resets
+ *       - Attacker can brute-force indefinitely using Burp Suite macro
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         application/json:
+ *           schema:
+ *             $ref: '#/components/schemas/LoginRequest'
+ *     responses:
+ *       302:
+ *         description: Redirect to profile, session includes currentPasswordAttempt = 0
+ *       401:
+ *         description: Invalid credentials
+ */
+router.post(
+  "/brute-force/password-change/login",
+  loginRules,
+  handleValidation,
+  authController.loginBruteViaPasswordChange,
+);
+
+/**
+ * @swagger
+ * /api/v1/auth/brute-force/password-change:
+ *   post:
+ *     tags: [V1 - Authentication (Vulnerable)]
+ *     summary: Change password (Vulnerable - username not verified against session + session-based rate limit)
+ *     description: |
+ *       Password change endpoint with two vulnerabilities used in the "Password brute-force via
+ *       password change" lab.
+ *
+ *       **Vulnerability 1: Username not bound to session**
+ *
+ *       The `username` field in the request body is used directly to find the target user,
+ *       without verifying it matches the authenticated user's session.
+ *       An attacker logged in as user A can submit `username=carlos` to change carlos's password.
+ *
+ *       **Vulnerability 2: Behavioral difference leaks correct password**
+ *
+ *       The response differs based on whether `current-password` is correct:
+ *       - Wrong current-password + `new-password-1 ≠ new-password-2` → `"Current password is incorrect"`
+ *       - **Correct** current-password + `new-password-1 ≠ new-password-2` → `"New passwords do not match"` ← leaked!
+ *       - Wrong current-password + `new-password-1 = new-password-2` → counter +1 (account lock path)
+ *
+ *       **Vulnerability 3: Rate limit is session-based (bypass)**
+ *
+ *       The failed attempt counter is stored in `req.session.currentPasswordAttempt`.
+ *       Re-logging in as user A resets the counter, bypassing the rate limit entirely.
+ *     security:
+ *       - cookieAuth: []
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         application/json:
+ *           schema:
+ *             type: object
+ *             required:
+ *               - username
+ *               - current-password
+ *               - new-password-1
+ *               - new-password-2
+ *             properties:
+ *               username:
+ *                 type: string
+ *                 example: "carlos"
+ *                 description: |
+ *                   Target username. **Vulnerable:** not validated against the session user.
+ *                   Attacker (wiener) can set this to any user (carlos) to attack their account.
+ *               current-password:
+ *                 type: string
+ *                 example: "§password-to-brute-force§"
+ *                 description: Current password of the target user (the value to brute-force)
+ *               new-password-1:
+ *                 type: string
+ *                 example: "abc12345"
+ *                 description: New password (set to a different value than new-password-2 to exploit behavioral leak)
+ *               new-password-2:
+ *                 type: string
+ *                 example: "xyz12345"
+ *                 description: Confirm new password (keep different from new-password-1 during brute-force)
+ *         examples:
+ *           normal_change:
+ *             summary: Legitimate password change
+ *             value:
+ *               username: "wiener"
+ *               current-password: "peter"
+ *               new-password-1: "NewPass@123"
+ *               new-password-2: "NewPass@123"
+ *           exploit_brute_force:
+ *             summary: Attacker brute-forcing carlos (new passwords differ to avoid lock)
+ *             value:
+ *               username: "carlos"
+ *               current-password: "attempt123"
+ *               new-password-1: "abc12345"
+ *               new-password-2: "xyz12345"
+ *     responses:
+ *       200:
+ *         description: Password changed successfully (session destroyed)
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 status:
+ *                   type: string
+ *                   example: "success"
+ *                 message:
+ *                   type: string
+ *                   example: "Password Changed"
+ *       400:
+ *         description: |
+ *           New passwords do not match (and current password is correct).
+ *           **This response indicates the brute-forced password is correct!**
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 status:
+ *                   type: string
+ *                   example: "error"
+ *                 message:
+ *                   type: string
+ *                   example: "New passwords do not match"
+ *       401:
+ *         description: Current password is incorrect (current-password is wrong)
+ *       429:
+ *         description: Account locked (too many wrong attempts with matching new passwords)
+ */
+router.post(
+  "/brute-force/password-change",
+  requireAuthSession,
+  changePasswordRules,
+  handleValidation,
+  authController.changePasswordBruteForce,
 );
 
 /**

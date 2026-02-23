@@ -355,6 +355,68 @@ const authService = {
     };
   },
 
+  async loginBruteViaPasswordChange(data) {
+    const { username, password } = data;
+    const existedUser = await User.findOne({ where: { username: username } });
+
+    const dummyHash = "$2a$10$abcdefghijklmnopqrstuvwxyzABC";
+    const targetHash = existedUser ? existedUser.password : dummyHash;
+
+    const isMatch = await bcrypt.compare(password, targetHash);
+
+    if (!existedUser || !isMatch) {
+      throw new AppError(401, "Invalid username or password");
+    }
+
+    return {
+      id: existedUser.id,
+      username: existedUser.username,
+      email: existedUser.email,
+    };
+  },
+
+  async changePasswordBruteForce(data) {
+    const {
+      username,
+      "current-password": currentPassword,
+      "new-password-1": newPassword1,
+      "new-password-2": newPassword2,
+    } = data;
+
+    const existedUser = await User.findOne({ where: { username: username } });
+
+    if (!existedUser) {
+      throw new AppError(401, "User does not exist");
+    }
+
+    const dummyHash = "$2a$10$abcdefghijklmnopqrstuvwxyzABC";
+    const targetHash = existedUser ? existedUser.password : dummyHash;
+    const isMatch = await bcrypt.compare(currentPassword, targetHash);
+
+    if (newPassword1 !== newPassword2) {
+      if (!isMatch) {
+        throw new AppError(401, "Current password is incorrect");
+      } else {
+        throw new AppError(401, "New passwords do not match");
+      }
+    }
+
+    if (!isMatch) {
+      const error = new AppError(401, "Current password is incorrect");
+      error.shouldIncrementAttempt = true;
+      throw error;
+    }
+
+    const saltRounds = 10;
+    const salt = await bcrypt.genSalt(saltRounds);
+    const hashedPassword = await bcrypt.hash(newPassword1, salt);
+
+    await User.update(
+      { password: hashedPassword },
+      { where: { username: username } },
+    );
+  },
+
   async generateFogotPasswordToken(data) {
     const { username, email } = data;
 
