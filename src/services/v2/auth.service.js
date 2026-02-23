@@ -547,10 +547,7 @@ const authService = {
       : await User.findOne({ where: { email } });
 
     if (!existedUser) {
-      throw new AppError(
-        200,
-        "Please check your email for a reset password link.",
-      );
+      return;
     }
 
     const token = crypto.randomBytes(32).toString("hex");
@@ -610,10 +607,7 @@ const authService = {
       : await User.findOne({ where: { email } });
 
     if (!existedUser) {
-      throw new AppError(
-        200,
-        "Please check your email for a reset password link.",
-      );
+      return; // early return — controller always sends the same successResponse
     }
 
     const token = crypto.randomBytes(32).toString("hex");
@@ -625,11 +619,11 @@ const authService = {
       tokenType: "password_reset",
       expiresAt: new Date(Date.now() + 5 * 60 * 1000), // 5 minutes
     });
-    const URL = `http://${hostname}/api/v2/auth/password-reset-poisoning?temp-forgot-password-token=${token}`;
+    const resetURL = `http://${hostname}/api/v2/auth/password-reset-poisoning?temp-forgot-password-token=${token}`;
     await sendEmail(
       existedUser.email,
       "Password Reset",
-      `Your password reset token is: ${URL}`,
+      `Your password reset token is: ${resetURL}`,
     );
   },
 
