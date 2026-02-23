@@ -25,5 +25,9 @@
       "password": "postgres",
       "name": "vunlab"
     }
-  ]
+  ],
+  "chat.tools.terminal.autoApprove": {
+    "Start-Process": true,
+    "netstat": true
+  }
 }

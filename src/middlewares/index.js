@@ -4,8 +4,10 @@ const {
   otpRules,
   generateForgotPasswordTokenRules,
   resetPasswordBrokenLogicRules,
+  changePasswordBruteForceRules,
   resetSecurePasswordBrokenLogicRules,
   changePasswordRules,
+  
 } = require("./auth-validation.middleware");
 const {
   requireAuthSession,
@@ -30,6 +32,7 @@ module.exports = {
   resetPasswordBrokenLogicRules,
   resetSecurePasswordBrokenLogicRules,
   changePasswordRules,
+  changePasswordBruteForceRules,
   requireAuthSession,
   resolveCookieByBase64,
   resolveCookieIdentity,

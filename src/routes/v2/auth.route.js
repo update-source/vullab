@@ -10,6 +10,8 @@ const {
   generateForgotPasswordTokenRules,
   resetSecurePasswordBrokenLogicRules,
   requirePendingOtpSession,
+  changePasswordBruteForceRules,
+  requireAuthSession,
 } = require("../../middlewares");
 
 /**
@@ -238,6 +240,130 @@ router.post(
   loginRules,
   handleValidation,
   authController.loginSecureStayLoggedInCookie,
+);
+
+/**
+ * @swagger
+ * /api/v2/auth/brute-force/password-change/login:
+ *   post:
+ *     tags: [V2 - Authentication (Secure)]
+ *     summary: Login for password change brute-force lab (Secure)
+ *     description: |
+ *       Secure login endpoint for the "Password brute-force via password change" lab.
+ *
+ *       **Security fix compared to V1:**
+ *       - No `currentPasswordAttempt` counter stored in session
+ *       - Rate limiting for change-password is enforced **per userId** in the service layer
+ *         (using Redis), not per session — re-logging in does NOT reset the counter
+ *
+ *       After login, use `POST /api/v2/auth/brute-force/password-change` to change password.
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         application/json:
+ *           schema:
+ *             $ref: '#/components/schemas/LoginRequest'
+ *     responses:
+ *       302:
+ *         description: Redirect to profile on success
+ *       401:
+ *         description: Invalid credentials
+ */
+router.post(
+  "/brute-force/password-change/login",
+  loginRules,
+  handleValidation,
+  authController.loginSecureBruteViaPasswordChange,
+);
+
+/**
+ * @swagger
+ * /api/v2/auth/brute-force/password-change:
+ *   post:
+ *     tags: [V2 - Authentication (Secure)]
+ *     summary: Change password (Secure - username bound to session + userId-based rate limit)
+ *     description: |
+ *       Secure password change endpoint that fixes all vulnerabilities present in the V1 version.
+ *
+ *       **Security fix 1: Username bound to session**
+ *
+ *       The target user is resolved from `req.authUserId` (set by `requireAuthSession`),
+ *       not from the request body. The `username` field is completely removed.
+ *       An attacker cannot change another user's password by submitting a different username.
+ *
+ *       **Security fix 2: No behavioral difference**
+ *
+ *       Both wrong current-password cases return the same error regardless of
+ *       whether new passwords match. The `changePasswordBruteForce` validation middleware
+ *       enforces `new-password-1 === new-password-2` before reaching the service,
+ *       eliminating the behavioral leak used for brute-forcing.
+ *
+ *       **Security fix 3: Rate limit per userId (not per session)**
+ *
+ *       Failed attempts are tracked via Redis key `change-pw-attempts:{userId}`.
+ *       Re-logging in creates a new session but the userId stays the same,
+ *       so the counter is NOT reset — the session-based bypass is completely mitigated.
+ *     security:
+ *       - cookieAuth: []
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         application/json:
+ *           schema:
+ *             type: object
+ *             required:
+ *               - current-password
+ *               - new-password-1
+ *               - new-password-2
+ *             properties:
+ *               current-password:
+ *                 type: string
+ *                 example: "OldPass@123"
+ *                 description: Current password of the authenticated user
+ *               new-password-1:
+ *                 type: string
+ *                 example: "NewPass@456"
+ *                 description: New password (min 8 chars, uppercase, lowercase, number, symbol)
+ *               new-password-2:
+ *                 type: string
+ *                 example: "NewPass@456"
+ *                 description: Must match new-password-1
+ *     responses:
+ *       200:
+ *         description: Password changed successfully
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 status:
+ *                   type: string
+ *                   example: "success"
+ *                 message:
+ *                   type: string
+ *                   example: "Password changed successfully"
+ *       401:
+ *         description: Current password is incorrect or unauthorized
+ *       429:
+ *         description: Too many failed attempts (rate limit per userId, not per session)
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 status:
+ *                   type: string
+ *                   example: "error"
+ *                 message:
+ *                   type: string
+ *                   example: "Too many failed attempts. Try again later."
+ */
+router.post(
+  "/brute-force/password-change",
+  requireAuthSession,
+  changePasswordBruteForceRules,
+  handleValidation,
+  authController.changeSecurePasswordBruteForce,
 );
 
 /**

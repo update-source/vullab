@@ -539,6 +539,66 @@ const authService = {
     return existedToken?.userId;
   },
 
+  async loginSecureBruteViaPasswordChange(data) {
+    const { username, password } = data;
+    const existedUser = await User.findOne({ where: { username: username } });
+
+    const dummyHash = "$2a$10$abcdefghijklmnopqrstuvwxyzABC";
+    const targetHash = existedUser ? existedUser.password : dummyHash;
+
+    const isMatch = await bcrypt.compare(password, targetHash);
+
+    if (!existedUser || !isMatch) {
+      throw new AppError(401, "Invalid username or password");
+    }
+
+    return {
+      id: existedUser.id,
+      username: existedUser.username,
+      email: existedUser.email,
+    };
+  },
+
+  async changeSecurePasswordBruteForce(userId, data) {
+    const {
+      "current-password": currentPassword,
+      "new-password-1": newPassword,
+    } = data;
+
+    const existedUser = await User.findOne({ where: { id: userId } });
+
+    const dummyHash = "$2a$10$abcdefghijklmnopqrstuvwxyzABC";
+    const targetHash = existedUser ? existedUser.password : dummyHash;
+
+    const isMatch = await bcrypt.compare(currentPassword, targetHash);
+
+
+    if (!existedUser || !isMatch) {
+      const key = `change-pw-attempts:${userId}`;
+      const attempts = await redisClient.incr(key);
+
+      if (attempts === 1) {
+         await redisClient.expire(key, 15 * 60);
+      }
+
+      if (attempts > 5) {
+        throw new AppError(429, "Too many failed attempts. Try again later.");
+      }
+      throw new AppError(401, "Current password is incorrect");
+    }
+
+    await redisClient.del(`change-pw-attempts:${userId}`);
+
+    const saltRounds = 10;
+    const salt = await bcrypt.genSalt(saltRounds);
+    const hashedPassword = await bcrypt.hash(newPassword, salt);
+
+    await User.update(
+      { password: hashedPassword },
+      { where: { id: userId } },
+    );
+  },
+
   async generateFogotPasswordToken(data) {
     const { username, email } = data;
 

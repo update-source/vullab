@@ -226,12 +226,56 @@ const changePasswordRules = [
     .withMessage("Confirm new password must be at least 8 characters"),
 ];
 
+const changePasswordBruteForceRules = [
+  body("current-password")
+    .trim()
+    .notEmpty()
+    .withMessage("Current password is required")
+    .isLength({ min: 8 })
+    .withMessage("Current password must be at least 8 characters"),
+
+  body("new-password-1")
+    .isStrongPassword({
+      minLength: 8,
+      minLowercase: 1,
+      minUppercase: 1,
+      minNumbers: 1,
+      minSymbols: 1,
+    })
+    .withMessage(
+      "Password must be at least 8 characters with uppercase and number",
+    ),
+    
+  body("new-password-2")
+    .isStrongPassword({
+      minLength: 8,
+      minLowercase: 1,
+      minUppercase: 1,
+      minNumbers: 1,
+      minSymbols: 1,
+    })
+    .withMessage(
+      "Password must be at least 8 characters with uppercase and number",
+    ),
+
+  body().custom((value, { req }) => {
+    const { "new-password-1": newPassword1, "new-password-2": newPassword2 } =
+      req.body;
+    if (newPassword1 !== newPassword2) {
+      throw new Error("Passwords do not match");
+    }
+    return true;
+  }),
+]
+
 module.exports = {
+
   registerRules,
   loginRules,
   otpRules,
   generateForgotPasswordTokenRules,
   resetPasswordBrokenLogicRules,
+  changePasswordBruteForceRules,
   resetSecurePasswordBrokenLogicRules,
   changePasswordRules,
 };

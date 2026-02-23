@@ -184,6 +184,34 @@ const authController = {
     }
   },
 
+  async loginSecureBruteViaPasswordChange(req, res, next) {
+    try {
+      const user = await authService.loginSecureBruteViaPasswordChange(
+        req.body,
+      );
+      await regenerateSession(req.session);
+      req.session.userId = user.id;
+      req.session.stage = "logged_in";
+      await req.session.save();
+      return res.redirect(302, "/api/v1/profile");
+    } catch (error) {
+      next(error);
+    }
+  },
+
+  async changeSecurePasswordBruteForce(req, res, next) {
+    try {
+      await authService.changeSecurePasswordBruteForce(
+        req.authUserId,
+        req.body,
+      );
+      await destroySession(req.session);
+      return successResponse(res, null, "Password Changed");
+    } catch (error) {
+      next(error);
+    }
+  },
+
   async generateFogotPasswordToken(req, res, next) {
     try {
       await authService.generateFogotPasswordToken(req.body);
@@ -208,7 +236,10 @@ const authController = {
 
   async generateSecurePasswordResetPoisoning(req, res, next) {
     try {
-      await authService.generateSecurePasswordResetPoisoning(req.hostname, req.body);
+      await authService.generateSecurePasswordResetPoisoning(
+        req.hostname,
+        req.body,
+      );
       return successResponse(
         res,
         null,
