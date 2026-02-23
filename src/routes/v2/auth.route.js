@@ -6,6 +6,7 @@ const {
   loginRules,
   registerRules,
   handleValidation,
+  requireTrustedHost,
   generateForgotPasswordTokenRules,
   resetSecurePasswordBrokenLogicRules,
   requirePendingOtpSession,
@@ -419,6 +420,246 @@ router.post(
   resetSecurePasswordBrokenLogicRules,
   handleValidation,
   authController.resetSecurePasswordBrokenLogic,
+);
+
+/**
+ * @swagger
+ * /api/v2/auth/password-reset-poisoning:
+ *   post:
+ *     tags: [V2 - Authentication (Secure)]
+ *     summary: Generate password reset link (Secure - Host Header Injection prevented)
+ *     description: |
+ *       Generates a password reset token and sends a **clickable reset link** to the user's email.
+ *       This is the **secure version** that mitigates Password Reset Poisoning by validating
+ *       the request's `Host` header against a server-side allowlist via the `requireTrustedHost`
+ *       middleware **before** the reset link is generated.
+ *
+ *       **Security fix: `requireTrustedHost` middleware**
+ *
+ *       The middleware reads `req.hostname` and checks it against `ALLOWED_HOSTS`
+ *       (configured via `process.env.ALLOWED_HOSTS`, defaults to `"localhost"`).
+ *       If the hostname is not in the allowlist, the request is **rejected with HTTP 400**
+ *       before any token is generated or any email is sent.
+ *
+ *       **Contrast with V1 (vulnerable):**
+ *       - V1 sets `trust proxy: true` → Express blindly trusts `X-Forwarded-Host`
+ *         → attacker can inject any domain into `req.hostname`
+ *       - V2 does **not** trust the reverse proxy header AND validates hostname against
+ *         an allowlist → poisoning the `Host` / `X-Forwarded-Host` header is blocked
+ *
+ *       **Why the attack fails on V2:**
+ *       1. Attacker sends `X-Forwarded-Host: attacker.com`
+ *       2. `requireTrustedHost` checks `req.hostname` against `ALLOWED_HOSTS`
+ *       3. `"attacker.com"` is not in the allowlist → **400 Invalid or untrusted host**
+ *       4. No token is generated, no email is sent → attack is blocked
+ *
+ *       **Reset link format (when hostname is trusted):**
+ *       ```
+ *       http://<trusted-hostname>/api/v2/auth/password-reset-poisoning?temp-forgot-password-token=<token>
+ *       ```
+ *
+ *       **At least one of `username` or `email` is required.**
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         application/json:
+ *           schema:
+ *             type: object
+ *             properties:
+ *               username:
+ *                 type: string
+ *                 minLength: 3
+ *                 maxLength: 50
+ *                 example: "carlos"
+ *                 description: Username of the account (optional if email is provided)
+ *               email:
+ *                 type: string
+ *                 format: email
+ *                 example: "carlos@example.com"
+ *                 description: Email of the account (optional if username is provided)
+ *               forgot-password:
+ *                 type: boolean
+ *                 example: true
+ *                 description: Must be true to trigger the flow
+ *             required:
+ *               - forgot-password
+ *           examples:
+ *             normal_request:
+ *               summary: Normal request (trusted host)
+ *               value:
+ *                 username: "carlos"
+ *                 forgot-password: true
+ *             poisoned_attempt:
+ *               summary: Would-be poisoned request — blocked by requireTrustedHost
+ *               value:
+ *                 username: "victim"
+ *                 forgot-password: true
+ *     parameters:
+ *       - in: header
+ *         name: X-Forwarded-Host
+ *         schema:
+ *           type: string
+ *           example: "attacker.exploit-server.net"
+ *         description: |
+ *           **⛔ Attack vector blocked in V2.**
+ *           Even if this header is sent, `requireTrustedHost` will reject the request
+ *           because `"attacker.exploit-server.net"` is not in the `ALLOWED_HOSTS` list.
+ *           The server returns **400 Invalid or untrusted host** before any token is created.
+ *     responses:
+ *       200:
+ *         description: |
+ *           Always returns 200 regardless of whether the user exists (prevents enumeration).
+ *           If the user exists and the host is trusted, a reset link is sent via email (valid 5 minutes).
+ *           If the user does not exist, no email is sent but the response is identical.
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 status:
+ *                   type: string
+ *                   example: "success"
+ *                 message:
+ *                   type: string
+ *                   example: "Please check your email for a reset password link."
+ *       400:
+ *         description: |
+ *           Validation error (missing required fields / invalid format)
+ *           **or** host is not in the trusted allowlist (`requireTrustedHost` rejected the request).
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 status:
+ *                   type: string
+ *                   example: "error"
+ *                 message:
+ *                   type: string
+ *                   example: "Invalid or untrusted host"
+ */
+router.post(
+  "/password-reset-poisoning",
+  requireTrustedHost,
+  generateForgotPasswordTokenRules,
+  handleValidation,
+  authController.generateSecurePasswordResetPoisoning,
+);
+
+/**
+ * @swagger
+ * /api/v2/auth/password-reset-poisoning/reset:
+ *   post:
+ *     tags: [V2 - Authentication (Secure)]
+ *     summary: Reset password via token from poisoning-resistant link (Secure)
+ *     description: |
+ *       Resets the user's password using a token received from the reset link generated by
+ *       `/api/v2/auth/password-reset-poisoning`.
+ *
+ *       **This endpoint has full token validation** — the attack chain is broken at the
+ *       *generation* step (by `requireTrustedHost`), but even if an attacker somehow
+ *       obtains a token, this reset step still validates it correctly.
+ *
+ *       **Token validation flow:**
+ *       1. Compute `sha256(submitted token)` → look up in `user_tokens` table
+ *       2. If not found → `401 Token is invalid or expired`
+ *       3. If `expiresAt <= now` → destroy token → `401 Token is invalid or expired`
+ *       4. Hash new password with bcrypt
+ *       5. Update user password via `token.userId` (identity comes from DB, not request body)
+ *       6. Destroy token (one-time use — prevents reuse)
+ *
+ *       **Security properties:**
+ *       - ✅ Token is cryptographically random (`crypto.randomBytes(32)`)
+ *       - ✅ Only SHA-256 hash is stored in DB — raw token is never persisted
+ *       - ✅ Token expires after 5 minutes
+ *       - ✅ Token is deleted after use (one-time use)
+ *       - ✅ User identity is resolved from the token, **not** from user-supplied input
+ *
+ *       **Usage flow:**
+ *       1. Call `POST /api/v2/auth/password-reset-poisoning` to receive token link via email
+ *       2. Extract the `temp-forgot-password-token` from the link
+ *       3. Submit it in this endpoint's body along with the new password
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         application/json:
+ *           schema:
+ *             type: object
+ *             required:
+ *               - new-password
+ *               - confirm-password
+ *               - temp-forgot-password-token
+ *             properties:
+ *               new-password:
+ *                 type: string
+ *                 format: password
+ *                 example: "NewSecure@123"
+ *                 description: New password (min 8 chars, must include upper, lower, number, symbol)
+ *               confirm-password:
+ *                 type: string
+ *                 format: password
+ *                 example: "NewSecure@123"
+ *                 description: Must match new-password
+ *               temp-forgot-password-token:
+ *                 type: string
+ *                 example: "a3f9c2b1d4e5f6a7b8c9d0e1f2a3b4c5d6e7f8a9b0c1d2e3f4a5b6c7d8e9f0a1"
+ *                 description: |
+ *                   The raw token from the reset link received via email.
+ *                   Server SHA-256 hashes this and validates against the DB.
+ *                   Token is valid for 5 minutes and can only be used once.
+ *           examples:
+ *             valid_reset:
+ *               summary: Legitimate user — reset with valid token from email link
+ *               value:
+ *                 new-password: "NewSecure@123"
+ *                 confirm-password: "NewSecure@123"
+ *                 temp-forgot-password-token: "a3f9c2b1d4e5f6a7b8c9d0e1f2a3b4c5..."
+ *     responses:
+ *       200:
+ *         description: Password reset successfully
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 status:
+ *                   type: string
+ *                   example: "success"
+ *                 message:
+ *                   type: string
+ *                   example: "Password reset successfully"
+ *       400:
+ *         description: Validation error (passwords don't match, weak password, or missing fields)
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 status:
+ *                   type: string
+ *                   example: "error"
+ *                 message:
+ *                   type: string
+ *                   example: "Passwords do not match"
+ *       401:
+ *         description: Token is invalid or has expired
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 status:
+ *                   type: string
+ *                   example: "error"
+ *                 message:
+ *                   type: string
+ *                   example: "Token is invalid or expired"
+ */
+router.post(
+  "/password-reset-poisoning/reset",
+  resetSecurePasswordBrokenLogicRules,
+  handleValidation,
+  authController.resetSecurePasswordViaPoison,
 );
 
 /**

@@ -15,6 +15,7 @@ const {
   requireAuthSessionIgnoreStage,
 } = require("./auth-session.middleware");
 const errorHandler = require("./error.middleware");
+const { requireTrustedHost } = require("./host.middleware");
 const handleValidation = require("./validation.middleware");
 
 module.exports = {
@@ -23,6 +24,7 @@ module.exports = {
   errorHandler,
   registerRules,
   handleValidation,
+  requireTrustedHost,
   generateForgotPasswordTokenRules,
   resetPasswordBrokenLogicRules,
   resetSecurePasswordBrokenLogicRules,
