@@ -28,9 +28,11 @@ app.use(
   }),
 );
 
-// Routes
-const routes = require("./src/routes");
-app.use("/api", routes); // Prefix cho tất cả API là /api
+const v1App = require("./src/apps/v1.app");
+const v2App = require("./src/apps/v2.app");
+
+app.use("/api/v1", v1App);
+app.use("/api/v2", v2App);
 
 const { errorHandler } = require("./src/middlewares");
 

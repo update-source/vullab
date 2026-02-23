@@ -8,6 +8,7 @@ const {
   handleValidation,
   generateForgotPasswordTokenRules,
   resetPasswordBrokenLogicRules,
+  resetSecurePasswordBrokenLogicRules,
   requirePendingOtpSession,
 } = require("../../middlewares");
 
@@ -482,6 +483,253 @@ router.post(
   authController.resetPasswordBrokenLogic,
 );
 
+/**
+ * @swagger
+ * /api/v1/auth/password-reset-poisoning:
+ *   post:
+ *     tags: [V1 - Authentication (Vulnerable)]
+ *     summary: Generate password reset link (Vulnerable - Password Reset Poisoning via X-Forwarded-Host)
+ *     description: |
+ *       Generates a password reset token and sends a **clickable reset link** to the user's email.
+ *       The link is built using `req.hostname` — which in Express is influenced by the `X-Forwarded-Host`
+ *       header when `trust proxy` is enabled.
+ *
+ *       **Root cause:** `v1App.set("trust proxy", true)` is configured on the server.
+ *       This makes Express trust the `X-Forwarded-Host` header and use its value as `req.hostname`,
+ *       allowing an attacker to control the domain in the generated reset URL.
+ *
+ *       **Vulnerability: Password Reset Poisoning via X-Forwarded-Host**
+ *
+ *       The reset link is built as:
+ *       ```
+ *       http://<req.hostname>/api/v1/auth/password-reset-poisoning?temp-forgot-password-token=<token>
+ *       ```
+ *       Since `req.hostname` reflects `X-Forwarded-Host`, the attacker can poison the link destination.
+ *
+ *       **Exploit flow (based on PortSwigger lab):**
+ *       1. Attacker intercepts/sends a POST to this endpoint targeting the victim's username
+ *       2. Adds the `X-Forwarded-Host` header pointing to their own server:
+ *          ```
+ *          X-Forwarded-Host: YOUR-EXPLOIT-SERVER-ID.exploit-server.net
+ *          ```
+ *       3. Server generates a valid token, saves SHA-256 hash to DB, then emails the victim
+ *          a reset link pointing to **the attacker's server**
+ *       4. Victim clicks the link → attacker's server access log captures the real token as a query param
+ *       5. Attacker copies the token from their server log
+ *       6. Attacker calls `/password-reset-poisoning/reset` with the stolen token to set a new password
+ *       7. Attacker logs in with the new password → **Full account takeover**
+ *
+ *       **Email received by victim (poisoned):**
+ *       ```
+ *       Your password reset token is:
+ *       http://exploit-server.net/api/v1/auth/password-reset-poisoning?temp-forgot-password-token=abc123real
+ *       ```
+ *
+ *       **Why it's vulnerable:**
+ *       - `trust proxy: true` causes Express to trust `X-Forwarded-Host` and set `req.hostname` to its value
+ *       - No allowlist of trusted domains is enforced on `req.hostname`
+ *       - The generated token is cryptographically valid and usable on the real server
+ *
+ *       **At least one of `username` or `email` is required.**
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         application/json:
+ *           schema:
+ *             type: object
+ *             properties:
+ *               username:
+ *                 type: string
+ *                 minLength: 3
+ *                 maxLength: 50
+ *                 example: "carlos"
+ *                 description: Username of the account (optional if email is provided)
+ *               email:
+ *                 type: string
+ *                 format: email
+ *                 example: "carlos@example.com"
+ *                 description: Email of the account (optional if username is provided)
+ *               forgot-password:
+ *                 type: boolean
+ *                 example: true
+ *                 description: Must be true to trigger the flow
+ *             required:
+ *               - forgot-password
+ *           examples:
+ *             normal_request:
+ *               summary: Normal request (no X-Forwarded-Host)
+ *               value:
+ *                 username: "carlos"
+ *                 forgot-password: true
+ *             poisoned_request:
+ *               summary: Poisoned request (attacker's username + X-Forwarded-Host header)
+ *               value:
+ *                 username: "victim"
+ *                 forgot-password: true
+ *     parameters:
+ *       - in: header
+ *         name: X-Forwarded-Host
+ *         schema:
+ *           type: string
+ *           example: "YOUR-EXPLOIT-SERVER-ID.exploit-server.net"
+ *         description: |
+ *           **⚠️ Primary exploit vector.**
+ *           Because the server sets `trust proxy: true`, Express reads this header and sets
+ *           `req.hostname` to its value. The server then uses `req.hostname` to build the
+ *           password reset link that is emailed to the victim.
+ *
+ *           Set this to an attacker-controlled server to capture the victim's reset token
+ *           from the server's access log when the victim clicks the link.
+ *     responses:
+ *       200:
+ *         description: |
+ *           Always returns 200 regardless of whether the user exists (prevents enumeration).
+ *           If the user exists, a poisoned reset link is emailed.
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 status:
+ *                   type: string
+ *                   example: "success"
+ *                 message:
+ *                   type: string
+ *                   example: "Please check your email for a reset password link."
+ *       400:
+ *         description: Validation error (missing required fields or invalid format)
+ */
+router.post(
+  "/password-reset-poisoning",
+  generateForgotPasswordTokenRules,
+  handleValidation,
+  authController.generatePasswordResetPoisoning,
+);
+
+/**
+ * @swagger
+ * /api/v1/auth/password-reset-poisoning/reset:
+ *   post:
+ *     tags: [V1 - Authentication (Vulnerable)]
+ *     summary: Reset password via poisoned token (used with /password-reset-poisoning)
+ *     description: |
+ *       Resets the user's password using a token from the email link generated by the `/password-reset-poisoning` endpoint.
+ *
+ *       **This endpoint has proper token validation** (unlike the broken-logic reset). However, it is the
+ *       **target step** in the password reset poisoning attack chain — once the attacker captures the
+ *       valid token (via `Host` header poisoning on the generate step), they use it here to take over the account.
+ *
+ *       **Token validation flow (correct behaviour):**
+ *       1. Server receives `temp-forgot-password-token` from the request body
+ *       2. Computes `sha256(token)` and looks it up in the `user_tokens` table
+ *       3. Checks token type is `password_reset` and has not expired (5-minute TTL)
+ *       4. Updates the user's password and deletes the used token
+ *
+ *       **Note:** No `username` field is required — the user identity is resolved from the token itself.
+ *
+ *       **Exploit scenario (full attack chain with `/password-reset-poisoning`):**
+ *       1. Attacker sends POST to `/password-reset-poisoning` with `Host: attacker.com` and victim's username
+ *       2. Victim receives email: `http://attacker.com/...?temp-forgot-password-token=<real_token>`
+ *       3. Victim clicks link → real token is sent to attacker's server
+ *       4. Attacker sends POST to this endpoint with the captured token and their chosen new password
+ *       5. Victim's password is reset → **Full account takeover**
+ *
+ *       **Example exploit request:**
+ *       ```json
+ *       {
+ *         "new-password": "Hacked@123",
+ *         "confirm-password": "Hacked@123",
+ *         "temp-forgot-password-token": "<token_stolen_from_victim>"
+ *       }
+ *       ```
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         application/json:
+ *           schema:
+ *             type: object
+ *             required:
+ *               - new-password
+ *               - confirm-password
+ *               - temp-forgot-password-token
+ *             properties:
+ *               new-password:
+ *                 type: string
+ *                 format: password
+ *                 example: "NewSecure@123"
+ *                 description: New password (min 8 chars, must include uppercase, lowercase, number, symbol)
+ *               confirm-password:
+ *                 type: string
+ *                 format: password
+ *                 example: "NewSecure@123"
+ *                 description: Must match new-password
+ *               temp-forgot-password-token:
+ *                 type: string
+ *                 example: "a3f1c2d4e5b6..."
+ *                 description: |
+ *                   The raw reset token received via the email link.
+ *                   Server will SHA-256 hash this and validate against the DB.
+ *                   Token expires after 5 minutes.
+ *           examples:
+ *             legitimate_reset:
+ *               summary: Legitimate user resetting their own password
+ *               value:
+ *                 new-password: "MyNewPass@123"
+ *                 confirm-password: "MyNewPass@123"
+ *                 temp-forgot-password-token: "real-token-from-email"
+ *             attacker_exploit:
+ *               summary: Attacker using stolen token (from poisoned reset link)
+ *               value:
+ *                 new-password: "Hacked@123"
+ *                 confirm-password: "Hacked@123"
+ *                 temp-forgot-password-token: "token-stolen-from-victim-click"
+ *     responses:
+ *       200:
+ *         description: Password reset successfully
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 status:
+ *                   type: string
+ *                   example: "success"
+ *                 message:
+ *                   type: string
+ *                   example: "Password reset successfully"
+ *       400:
+ *         description: Validation error (passwords don't match, weak password, or missing fields)
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 status:
+ *                   type: string
+ *                   example: "error"
+ *                 message:
+ *                   type: string
+ *                   example: "Passwords do not match"
+ *       401:
+ *         description: Token is invalid or has expired
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 status:
+ *                   type: string
+ *                   example: "error"
+ *                 message:
+ *                   type: string
+ *                   example: "Token is invalid or expired"
+ */
+router.post(
+  "/password-reset-poisoning/reset",
+  resetSecurePasswordBrokenLogicRules,
+  handleValidation,
+  authController.resetPasswordViaPoison,
+);
 
 /**
  * @swagger

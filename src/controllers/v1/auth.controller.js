@@ -167,6 +167,27 @@ const authController = {
     }
   },
 
+  async generatePasswordResetPoisoning(req, res, next) {
+    try {
+      await authService.generatePasswordResetPoisoning(req.hostname, req.body);
+      return successResponse(
+        res,
+        null,
+        "Please check your email for a reset password link.",
+      );
+    } catch (error) {
+      next(error);
+    }
+  },
+  async resetPasswordViaPoison(req, res, next) {
+    try {
+      await authService.resetPasswordViaPoison(req.body);
+      return successResponse(res, null, "Password reset successfully");
+    } catch (error) {
+      next(error);
+    }
+  },
+
   async login2FASimpleBypass(req, res, next) {
     try {
       const user = await authService.login2FASimpleBypass(req.body);
