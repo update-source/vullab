@@ -2,6 +2,7 @@ const express = require("express");
 const router = express.Router();
 const { profileController } = require("../../controllers/v2");
 const {
+  requireAuthJwt,
   requireAuthSession,
   requireAuthSessionOrCookie,
   resolveCookieIdentity,
@@ -88,6 +89,76 @@ router.get(
   "/cookie",
   requireAuthSessionOrCookie,
   resolveCookieIdentity,
+  profileController.getProfile,
+);
+
+/**
+ * @swagger
+ * /api/v2/profile/jwt/unverified-signature:
+ *   get:
+ *     tags: [V2 - Profile (Secure)]
+ *     summary: Get profile via JWT with verified signature (secure)
+ *     description: |
+ *       **This is the SECURE version** of the JWT-protected profile endpoint.
+ *
+ *       **Security fix:** This route uses `jwt.verify(token, secret)` instead of `jwt.decode()`.
+ *       The middleware validates:
+ *       - Token signature is cryptographically correct
+ *       - Token has not been tampered with
+ *       - Issuer, audience, and algorithm claims match expected values
+ *       - Token has not expired
+ *
+ *       **Differences from vulnerable v1:**
+ *       - v1: Uses `jwt.decode()` — accepts forged tokens with modified `id`/`username`
+ *       - v2: Uses `jwt.verify()` — rejects any token with invalid signature
+ *
+ *       **Why this prevents ATO:**
+ *       An attacker cannot modify the payload (e.g., change `id` to victim's ID) without
+ *       knowing the signing secret, because `jwt.verify()` will reject the forged signature.
+ *
+ *       **Test steps (should FAIL):**
+ *       1. Login at `POST /api/v2/jwt/unverified-signature/login` to get a valid token
+ *       2. Decode payload and change `id` to another user's ID
+ *       3. Re-encode with `alg: none` or forge signature
+ *       4. Send to this endpoint → **401 Unauthorized** (signature verification fails)
+ *
+ *       **References:**
+ *       - https://cheatsheetseries.owasp.org/cheatsheets/JSON_Web_Token_for_Java_Cheat_Sheet.html
+ *
+ *     security:
+ *       - bearerAuth: []
+ *     responses:
+ *       200:
+ *         description: User profile fetched successfully
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 success:
+ *                   type: boolean
+ *                   example: true
+ *                 message:
+ *                   type: string
+ *                   example: "Profile fetched successfully"
+ *                 data:
+ *                   type: object
+ *                   description: User profile (only if token signature is valid)
+ *       401:
+ *         description: |
+ *           Unauthorized. Possible reasons:
+ *           - Missing Authorization header
+ *           - Token signature is invalid (forged token)
+ *           - Token has expired
+ *           - Algorithm mismatch (e.g., `alg: none`)
+ *         content:
+ *           application/json:
+ *             schema:
+ *               $ref: '#/components/schemas/ErrorResponse'
+ */
+router.get(
+  "/jwt/unverified-signature",
+  requireAuthJwt,
   profileController.getProfile,
 );
 

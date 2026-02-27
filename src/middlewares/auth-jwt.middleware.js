@@ -39,7 +39,7 @@ const requireAuthJwt = (req, res, next) => {
 
   try {
     const payload = verifyAccessToken(token);
-    req.authUserId = payload?.id;
+    req.authUserId = payload?.id; // only use id
   } catch (error) {
     console.log(error.message);
     return next(new AppError(401, "Unauthorized"));

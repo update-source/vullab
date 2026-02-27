@@ -140,6 +140,14 @@ const options = {
         description: "Secure authentication endpoints with fixes",
       },
       {
+        name: "V2 - JWT (Secure)",
+        description: "Secure JWT endpoints with proper signature verification",
+      },
+      {
+        name: "V2 - Profile (Secure)",
+        description: "Secure profile endpoints with proper authentication",
+      },
+      {
         name: "Profile",
         description: "User profile endpoints",
       },
