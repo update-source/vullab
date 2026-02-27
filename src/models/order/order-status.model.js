@@ -1,4 +1,4 @@
-const { sequelize, DataTypes, Model } = require("../../config/database.config");
+const { DataTypes, Model, sequelize } = require("../../config/database.config");
 
 class OrderStatus extends Model {}
 

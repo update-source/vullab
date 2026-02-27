@@ -1,21 +1,26 @@
 const {
-  registerRules,
+  changePasswordBruteForceRules,
+  changePasswordRules,
+  generateForgotPasswordTokenRules,
   loginRules,
   otpRules,
-  generateForgotPasswordTokenRules,
+  registerRules,
   resetPasswordBrokenLogicRules,
-  changePasswordBruteForceRules,
   resetSecurePasswordBrokenLogicRules,
-  changePasswordRules,
-  
 } = require("./auth-validation.middleware");
+
+const {
+  requireAuthJwt,
+  requireAuthJwtButUnverifiedSignature,
+} = require("./auth-jwt.middleware");
+
 const {
   requireAuthSession,
+  requireAuthSessionIgnoreStage,
+  requireAuthSessionOrCookie,
+  requirePendingOtpSession,
   resolveCookieByBase64,
   resolveCookieIdentity,
-  requirePendingOtpSession,
-  requireAuthSessionOrCookie,
-  requireAuthSessionIgnoreStage,
 } = require("./auth-session.middleware");
 const errorHandler = require("./error.middleware");
 const { requireTrustedHost } = require("./host.middleware");
@@ -25,9 +30,11 @@ module.exports = {
   otpRules,
   loginRules,
   errorHandler,
+  requireAuthJwt,
   registerRules,
   handleValidation,
   requireTrustedHost,
+  requireAuthJwtButUnverifiedSignature,
   generateForgotPasswordTokenRules,
   resetPasswordBrokenLogicRules,
   resetSecurePasswordBrokenLogicRules,

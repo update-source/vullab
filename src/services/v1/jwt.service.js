@@ -11,7 +11,7 @@ const BCRYPT_DUMMY_PASSWORD = process.env.BCRYPT_DUMMY_PASSWORD;
 
 const jwtService = {
   async jwtAuthenticationBypassViaUnverifiedSignature(data) {
-    const { username, password } = data;
+    const { password, username } = data;
     const existedUser = await User.findOne({ where: { username: username } });
 
     const salt = await bcrypt.genSalt(BCRYPT_SALT_ROUNDS);

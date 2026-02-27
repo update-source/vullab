@@ -1,8 +1,8 @@
 const {
-  User,
-  LoginAttempt,
-  UserSecurityLog,
   AuthToken,
+  LoginAttempt,
+  User,
+  UserSecurityLog,
   UserToken,
 } = require("../../models");
 
@@ -32,7 +32,7 @@ const authService = {
     */
   async register(data) {
     // This is the function for register user in vulab
-    const { username, email, password, isEmailVerified } = data;
+    const { email, isEmailVerified, password, username } = data;
 
     const existingUser = await User.findOne({
       where: { [Op.or]: [{ username }, { email }] },
@@ -96,7 +96,7 @@ const authService = {
     /*https://github.com/spring-projects/spring-security/blob/c5632ccd838fcb2753a978918561081cff037510/core/src/main/java/org/springframework/security/authentication/dao/DaoAuthenticationProvider.java#L145
         CVE-2025-22234 - This link contain a fix path version It use dummy password like i do
         */
-    const { username, password } = data;
+    const { password, username } = data;
     const existedUser = await User.findOne({ where: { username: username } });
 
     const salt = await bcrypt.genSalt(BCRYPT_SALT_ROUNDS);
@@ -118,7 +118,7 @@ const authService = {
   },
 
   async loginSecureAccountLock(data) {
-    const { username, password } = data;
+    const { password, username } = data;
     //https://github.com/animir/node-rate-limiter-flexible/wiki/Overall-example#minimal-protection-against-password-brute-force
     // I assume that if the user does not exist, there must be a place to save it, so metadata would be reasonable in this case.
     // Note, this approach may be an issue for your users, if somebody knows your service applies it.
@@ -212,7 +212,7 @@ const authService = {
       existedIp.blockedUntil = null;
     }
 
-    const { username, password } = data;
+    const { password, username } = data;
     const existedUser = await User.findOne({ where: { username: username } });
 
     const salt = await bcrypt.genSalt(BCRYPT_SALT_ROUNDS);
@@ -307,7 +307,7 @@ const authService = {
       existedIp.blockedUntil = null;
     }
 
-    const { username, password } = data;
+    const { password, username } = data;
     const existedUser = await User.findOne({ where: { username: username } });
 
     const salt = await bcrypt.genSalt(BCRYPT_SALT_ROUNDS);
@@ -403,7 +403,7 @@ const authService = {
       existedIp.blockedUntil = null;
     }
 
-    const { username, password } = data;
+    const { password, username } = data;
     const existedUser = await User.findOne({ where: { username: username } });
     const salt = await bcrypt.genSalt(BCRYPT_SALT_ROUNDS);
     const dummyHash = await bcrypt.hash(BCRYPT_DUMMY_PASSWORD, salt);
@@ -494,7 +494,7 @@ const authService = {
   },
 
   async loginSecureStayLoggedInCookie(data) {
-    const { username, password, "stay-logged-in": isStayLoggedIn } = data;
+    const { password, "stay-logged-in": isStayLoggedIn, username } = data;
     const existedUser = await User.findOne({ where: { username: username } });
 
     const salt = await bcrypt.genSalt(BCRYPT_SALT_ROUNDS);
@@ -552,7 +552,7 @@ const authService = {
   },
 
   async loginSecureBruteViaPasswordChange(data) {
-    const { username, password } = data;
+    const { password, username } = data;
     const existedUser = await User.findOne({ where: { username: username } });
 
     const salt = await bcrypt.genSalt(BCRYPT_SALT_ROUNDS);
@@ -608,7 +608,7 @@ const authService = {
   },
 
   async generateFogotPasswordToken(data) {
-    const { username, email } = data;
+    const { email, username } = data;
 
     const existedUser = username
       ? await User.findOne({ where: { username } })
@@ -665,7 +665,7 @@ const authService = {
   },
 
   async generateSecurePasswordResetPoisoning(hostname, data) {
-    const { username, email } = data;
+    const { email, username } = data;
 
     const existedUser = username
       ? await User.findOne({ where: { username } })
@@ -722,7 +722,7 @@ const authService = {
   },
 
   async loginSecure2FASimpleBypass(data) {
-    const { username, password } = data;
+    const { password, username } = data;
     const existedUser = await User.findOne({ where: { username: username } });
 
     const salt = await bcrypt.genSalt(BCRYPT_SALT_ROUNDS);
@@ -758,7 +758,7 @@ const authService = {
   },
 
   async loginSecure2FABrokenLogic(data) {
-    const { username, password } = data;
+    const { password, username } = data;
     const existedUser = await User.findOne({ where: { username: username } });
 
     const salt = await bcrypt.genSalt(BCRYPT_SALT_ROUNDS);

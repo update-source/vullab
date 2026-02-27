@@ -1,14 +1,14 @@
 const { sequelize } = require("../models");
 const {
-  User,
-  UserProfile,
   Category,
+  Country,
+  OrderStatus,
+  PaymentMethod,
   Product,
   ProductItem,
-  OrderStatus,
   ShippingMethod,
-  PaymentMethod,
-  Country,
+  User,
+  UserProfile,
 } = require("../models");
 const referenceData = require("./data/reference.data");
 const dummyData = require("./data/dummy.data");

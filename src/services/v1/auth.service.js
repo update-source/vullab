@@ -1,6 +1,6 @@
 const {
-  User,
   LoginAttempt,
+  User,
   UserSecurityLog,
   UserToken,
 } = require("../../models");
@@ -21,7 +21,7 @@ const BCRYPT_DUMMY_PASSWORD = process.env.BCRYPT_DUMMY_PASSWORD;
 
 const authService = {
   async loginEnumDifferent(data) {
-    const { username, password } = data;
+    const { password, username } = data;
     const existedUser = await User.findOne({ where: { username: username } });
 
     const salt = await bcrypt.genSalt(BCRYPT_SALT_ROUNDS);
@@ -46,7 +46,7 @@ const authService = {
   },
 
   async loginEnumSubtle(data) {
-    const { username, password } = data;
+    const { password, username } = data;
     const existedUser = await User.findOne({ where: { username: username } });
 
     const salt = await bcrypt.genSalt(BCRYPT_SALT_ROUNDS);
@@ -71,7 +71,7 @@ const authService = {
   },
 
   async loginEnumTiming(data) {
-    const { username, password } = data;
+    const { password, username } = data;
     const existedUser = await User.findOne({ where: { username: username } });
 
     if (!existedUser) {
@@ -90,7 +90,7 @@ const authService = {
   },
 
   async loginEnumViaAccountLock(data) {
-    const { username, password } = data;
+    const { password, username } = data;
     const existedUser = await User.findOne({ where: { username: username } });
     const userId = existedUser ? existedUser.id : null;
 
@@ -146,7 +146,7 @@ const authService = {
   },
 
   async loginBrokenIpBlock(data, ip, metadata) {
-    const { username, password } = data;
+    const { password, username } = data;
     const existedUser = await User.findOne({ where: { username: username } });
     let existedIp = await LoginAttempt.findOne({ where: { ipAddress: ip } });
 
@@ -277,7 +277,7 @@ const authService = {
       existedIp.blockedUntil = null;
     }
 
-    const { username, password } = data;
+    const { password, username } = data;
     const existedUser = await User.findOne({ where: { username: username } });
 
     const salt = await bcrypt.genSalt(BCRYPT_SALT_ROUNDS);
@@ -348,7 +348,7 @@ const authService = {
   },
 
   async loginStayLoggedInCookie(data) {
-    const { username, password, "stay-logged-in": isStayLoggedIn } = data;
+    const { password, "stay-logged-in": isStayLoggedIn, username } = data;
     const existedUser = await User.findOne({ where: { username: username } });
 
     const salt = await bcrypt.genSalt(BCRYPT_SALT_ROUNDS);
@@ -371,7 +371,7 @@ const authService = {
   },
 
   async loginBruteViaPasswordChange(data) {
-    const { username, password } = data;
+    const { password, username } = data;
     const existedUser = await User.findOne({ where: { username: username } });
 
     const salt = await bcrypt.genSalt(BCRYPT_SALT_ROUNDS);
@@ -393,10 +393,10 @@ const authService = {
 
   async changePasswordBruteForce(data) {
     const {
-      username,
       "current-password": currentPassword,
       "new-password-1": newPassword1,
       "new-password-2": newPassword2,
+      username,
     } = data;
 
     const existedUser = await User.findOne({ where: { username: username } });
@@ -433,7 +433,7 @@ const authService = {
   },
 
   async generateFogotPasswordToken(data) {
-    const { username, email } = data;
+    const { email, username } = data;
 
     const existedUser = username
       ? await User.findOne({ where: { username } })
@@ -462,10 +462,10 @@ const authService = {
 
   async resetPasswordBrokenLogic(data) {
     const {
-      username,
-      "new-password": newPassword,
       "confirm-password": confirmPassword,
+      "new-password": newPassword,
       "temp-forgot-password-token": token,
+      username,
     } = data;
 
     const existedUser = await User.findOne({ where: { username: username } });
@@ -494,7 +494,7 @@ const authService = {
   },
 
   async generatePasswordResetPoisoning(hostname, data) {
-    const { username, email } = data;
+    const { email, username } = data;
 
     const existedUser = username
       ? await User.findOne({ where: { username } })
@@ -551,7 +551,7 @@ const authService = {
   },
 
   async login2FASimpleBypass(data) {
-    const { username, password } = data;
+    const { password, username } = data;
     const existedUser = await User.findOne({ where: { username: username } });
 
     const salt = await bcrypt.genSalt(BCRYPT_SALT_ROUNDS);
@@ -587,7 +587,7 @@ const authService = {
   },
 
   async login2FABrokenLogic(data) {
-    const { username, password } = data;
+    const { password, username } = data;
     const existedUser = await User.findOne({ where: { username: username } });
 
     const salt = await bcrypt.genSalt(BCRYPT_SALT_ROUNDS);

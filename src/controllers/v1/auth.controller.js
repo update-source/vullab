@@ -1,7 +1,7 @@
 const { authService } = require("../../services/v1");
 const AppError = require("../../utils/AppError");
 const { successResponse } = require("../../utils/response");
-const { regenerateSession, destroySession } = require("../../utils/session");
+const { destroySession, regenerateSession } = require("../../utils/session");
 const { sendEmail } = require("../../utils/email");
 const { redisClient } = require("../../config/redis.config");
 const crypto = require("crypto");
@@ -117,7 +117,7 @@ const authController = {
       await regenerateSession(req.session);
 
       if (user?.isStayLoggedIn === "on") {
-        const { username, password } = user;
+        const { password, username } = user;
         const md5HashOfPassword = crypto
           .createHash("md5")
           .update(password, "utf-8")

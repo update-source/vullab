@@ -117,6 +117,13 @@ const options = {
           in: "cookie",
           name: "session",
         },
+        bearerAuth: {
+          type: "http",
+          scheme: "bearer",
+          bearerFormat: "JWT",
+          description:
+            "Paste the JWT token obtained from the login endpoint (without 'Bearer ' prefix)",
+        },
       },
     },
     tags: [

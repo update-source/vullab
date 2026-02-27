@@ -2,16 +2,16 @@ const express = require("express");
 const router = express.Router();
 const { authController } = require("../../controllers/v2");
 const {
-  otpRules,
-  loginRules,
-  registerRules,
-  handleValidation,
-  requireTrustedHost,
-  generateForgotPasswordTokenRules,
-  resetSecurePasswordBrokenLogicRules,
-  requirePendingOtpSession,
   changePasswordBruteForceRules,
+  generateForgotPasswordTokenRules,
+  handleValidation,
+  loginRules,
+  otpRules,
+  registerRules,
   requireAuthSession,
+  requirePendingOtpSession,
+  requireTrustedHost,
+  resetSecurePasswordBrokenLogicRules,
 } = require("../../middlewares");
 
 /**

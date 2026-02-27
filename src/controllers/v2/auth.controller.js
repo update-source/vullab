@@ -1,7 +1,7 @@
 const { authService } = require("../../services/v2");
 const { successResponse } = require("../../utils/response");
 const AppError = require("../../utils/AppError");
-const { regenerateSession, destroySession } = require("../../utils/session");
+const { destroySession, regenerateSession } = require("../../utils/session");
 const { AuthToken } = require("../../models");
 const crypto = require("crypto");
 const authController = {

@@ -92,7 +92,7 @@ const generateForgotPasswordTokenRules = [
     .normalizeEmail(),
 
   body().custom((value, { req }) => {
-    const { username, email } = req.body;
+    const { email, username } = req.body;
     if (!username && !email) {
       throw new Error("Username or email is required");
     }
@@ -140,7 +140,7 @@ const resetPasswordBrokenLogicRules = [
     ),
 
   body().custom((value, { req }) => {
-    const { "new-password": newPassword, "confirm-password": confirmPassword } =
+    const { "confirm-password": confirmPassword, "new-password": newPassword } =
       req.body;
     if (newPassword !== confirmPassword) {
       throw new Error("Passwords do not match");
@@ -181,7 +181,7 @@ const resetSecurePasswordBrokenLogicRules = [
     ),
 
   body().custom((value, { req }) => {
-    const { "new-password": newPassword, "confirm-password": confirmPassword } =
+    const { "confirm-password": confirmPassword, "new-password": newPassword } =
       req.body;
     if (newPassword !== confirmPassword) {
       throw new Error("Passwords do not match");
