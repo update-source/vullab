@@ -4,18 +4,28 @@ const {
   UserSecurityLog,
   UserToken,
 } = require("../../models");
+
 const { Op } = require("sequelize");
 const bcrypt = require("bcryptjs");
-const AppError = require("../../utils/AppError");
+const crypto = require("crypto");
 const { sendEmail } = require("../../utils/email");
 const { redisClient } = require("../../config/redis.config");
-const crypto = require("crypto");
+const AppError = require("../../utils/AppError");
+
+require("dotenv").config({
+  path: require("path").resolve(__dirname, "../../.env"),
+});
+
+const BCRYPT_SALT_ROUNDS = parseInt(process.env.BCRYPT_SALT_ROUNDS, 10);
+const BCRYPT_DUMMY_PASSWORD = process.env.BCRYPT_DUMMY_PASSWORD;
+
 const authService = {
   async loginEnumDifferent(data) {
     const { username, password } = data;
     const existedUser = await User.findOne({ where: { username: username } });
 
-    const dummyHash = "$2a$10$abcdefghijklmnopqrstuvwxyzABC";
+    const salt = await bcrypt.genSalt(BCRYPT_SALT_ROUNDS);
+    const dummyHash = await bcrypt.hash(BCRYPT_DUMMY_PASSWORD, salt);
     const targetHash = existedUser ? existedUser.password : dummyHash;
 
     const isMatch = await bcrypt.compare(password, targetHash);
@@ -39,7 +49,8 @@ const authService = {
     const { username, password } = data;
     const existedUser = await User.findOne({ where: { username: username } });
 
-    const dummyHash = "$2a$10$abcdefghijklmnopqrstuvwxyzABC";
+    const salt = await bcrypt.genSalt(BCRYPT_SALT_ROUNDS);
+    const dummyHash = await bcrypt.hash(BCRYPT_DUMMY_PASSWORD, salt);
     const targetHash = existedUser ? existedUser.password : dummyHash;
 
     const isMatch = await bcrypt.compare(password, targetHash);
@@ -83,7 +94,8 @@ const authService = {
     const existedUser = await User.findOne({ where: { username: username } });
     const userId = existedUser ? existedUser.id : null;
 
-    const dummyHash = "$2a$10$abcdefghijklmnopqrstuvwxyzABC";
+    const salt = await bcrypt.genSalt(BCRYPT_SALT_ROUNDS);
+    const dummyHash = await bcrypt.hash(BCRYPT_DUMMY_PASSWORD, salt);
     const targetHash = existedUser ? existedUser.password : dummyHash;
 
     const isMatch = await bcrypt.compare(password, targetHash);
@@ -138,7 +150,8 @@ const authService = {
     const existedUser = await User.findOne({ where: { username: username } });
     let existedIp = await LoginAttempt.findOne({ where: { ipAddress: ip } });
 
-    const dummyHash = "$2a$10$abcdefghijklmnopqrstuvwxyzABC";
+    const salt = await bcrypt.genSalt(BCRYPT_SALT_ROUNDS);
+    const dummyHash = await bcrypt.hash(BCRYPT_DUMMY_PASSWORD, salt);
     const targetHash = existedUser ? existedUser.password : dummyHash;
 
     const isMatch = await bcrypt.compare(password, targetHash);
@@ -267,7 +280,8 @@ const authService = {
     const { username, password } = data;
     const existedUser = await User.findOne({ where: { username: username } });
 
-    const dummyHash = "$2a$10$abcdefghijklmnopqrstuvwxyzABC";
+    const salt = await bcrypt.genSalt(BCRYPT_SALT_ROUNDS);
+    const dummyHash = await bcrypt.hash(BCRYPT_DUMMY_PASSWORD, salt);
     const targetHash = existedUser ? existedUser.password : dummyHash;
     let isMatch = false;
 
@@ -337,7 +351,8 @@ const authService = {
     const { username, password, "stay-logged-in": isStayLoggedIn } = data;
     const existedUser = await User.findOne({ where: { username: username } });
 
-    const dummyHash = "$2a$10$abcdefghijklmnopqrstuvwxyzABC";
+    const salt = await bcrypt.genSalt(BCRYPT_SALT_ROUNDS);
+    const dummyHash = await bcrypt.hash(BCRYPT_DUMMY_PASSWORD, salt);
     const targetHash = existedUser ? existedUser.password : dummyHash;
 
     const isMatch = await bcrypt.compare(password, targetHash);
@@ -359,7 +374,8 @@ const authService = {
     const { username, password } = data;
     const existedUser = await User.findOne({ where: { username: username } });
 
-    const dummyHash = "$2a$10$abcdefghijklmnopqrstuvwxyzABC";
+    const salt = await bcrypt.genSalt(BCRYPT_SALT_ROUNDS);
+    const dummyHash = await bcrypt.hash(BCRYPT_DUMMY_PASSWORD, salt);
     const targetHash = existedUser ? existedUser.password : dummyHash;
 
     const isMatch = await bcrypt.compare(password, targetHash);
@@ -389,7 +405,8 @@ const authService = {
       throw new AppError(401, "User does not exist");
     }
 
-    const dummyHash = "$2a$10$abcdefghijklmnopqrstuvwxyzABC";
+    const salt = await bcrypt.genSalt(BCRYPT_SALT_ROUNDS);
+    const dummyHash = await bcrypt.hash(BCRYPT_DUMMY_PASSWORD, salt);
     const targetHash = existedUser ? existedUser.password : dummyHash;
     const isMatch = await bcrypt.compare(currentPassword, targetHash);
 
@@ -407,8 +424,6 @@ const authService = {
       throw error;
     }
 
-    const saltRounds = 10;
-    const salt = await bcrypt.genSalt(saltRounds);
     const hashedPassword = await bcrypt.hash(newPassword1, salt);
 
     await User.update(
@@ -470,8 +485,7 @@ const authService = {
     //   throw new AppError(401, "Token is invalid or expired");
     // }
 
-    const saltRounds = 10;
-    const salt = await bcrypt.genSalt(saltRounds);
+    const salt = await bcrypt.genSalt(BCRYPT_SALT_ROUNDS);
     const hashedPassword = await bcrypt.hash(newPassword, salt);
 
     existedUser.password = hashedPassword;
@@ -526,8 +540,7 @@ const authService = {
       throw new AppError(401, "Token is invalid or expired");
     }
 
-    const saltRounds = 10;
-    const salt = await bcrypt.genSalt(saltRounds);
+    const salt = await bcrypt.genSalt(BCRYPT_SALT_ROUNDS);
     const hashedPassword = await bcrypt.hash(newPassword, salt);
 
     await User.update(
@@ -541,7 +554,8 @@ const authService = {
     const { username, password } = data;
     const existedUser = await User.findOne({ where: { username: username } });
 
-    const dummyHash = "$2a$10$abcdefghijklmnopqrstuvwxyzABC";
+    const salt = await bcrypt.genSalt(BCRYPT_SALT_ROUNDS);
+    const dummyHash = await bcrypt.hash(BCRYPT_DUMMY_PASSWORD, salt);
     const targetHash = existedUser ? existedUser.password : dummyHash;
 
     const isMatch = await bcrypt.compare(password, targetHash);
@@ -576,7 +590,8 @@ const authService = {
     const { username, password } = data;
     const existedUser = await User.findOne({ where: { username: username } });
 
-    const dummyHash = "$2a$10$abcdefghijklmnopqrstuvwxyzABC";
+    const salt = await bcrypt.genSalt(BCRYPT_SALT_ROUNDS);
+    const dummyHash = await bcrypt.hash(BCRYPT_DUMMY_PASSWORD, salt);
     const targetHash = existedUser ? existedUser.password : dummyHash;
 
     const isMatch = await bcrypt.compare(password, targetHash);

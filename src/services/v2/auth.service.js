@@ -5,12 +5,20 @@ const {
   AuthToken,
   UserToken,
 } = require("../../models");
+
 const { Op, where } = require("sequelize");
 const bcrypt = require("bcryptjs");
 const crypto = require("crypto");
 const { sendEmail } = require("../../utils/email");
 const { redisClient } = require("../../config/redis.config");
 const AppError = require("../../utils/AppError");
+
+require("dotenv").config({
+  path: require("path").resolve(__dirname, "../../.env"),
+});
+
+const BCRYPT_SALT_ROUNDS = parseInt(process.env.BCRYPT_SALT_ROUNDS, 10);
+const BCRYPT_DUMMY_PASSWORD = process.env.BCRYPT_DUMMY_PASSWORD;
 
 const authService = {
   /* 
@@ -30,8 +38,7 @@ const authService = {
       where: { [Op.or]: [{ username }, { email }] },
     });
 
-    const saltRounds = 10;
-    const salt = await bcrypt.genSalt(saltRounds);
+    const salt = await bcrypt.genSalt(BCRYPT_SALT_ROUNDS);
     const hashedPassword = await bcrypt.hash(password, salt);
 
     if (existingUser) {
@@ -74,8 +81,7 @@ const authService = {
         
         const existingUser = await User.findOne({ where: { [Op.or]: [{ username }, { email }] } });
 
-        const saltRounds = 10;
-        const salt = await bcrypt.genSalt(saltRounds);
+        const salt = await bcrypt.genSalt(BCRYPT_SALT_ROUNDS);
         const hashedPassword = await bcrypt.hash(password, salt);
 
         if (existingUser) {
@@ -93,7 +99,8 @@ const authService = {
     const { username, password } = data;
     const existedUser = await User.findOne({ where: { username: username } });
 
-    const dummyHash = "$2a$10$abcdefghijklmnopqrstuvwxyzABC";
+    const salt = await bcrypt.genSalt(BCRYPT_SALT_ROUNDS);
+    const dummyHash = await bcrypt.hash(BCRYPT_DUMMY_PASSWORD, salt);
     const targetHash = existedUser ? existedUser.password : dummyHash;
 
     const isMatch = await bcrypt.compare(password, targetHash);
@@ -135,7 +142,8 @@ const authService = {
     }
 
     const existedUser = await User.findOne({ where: { username: username } });
-    const dummyHash = "$2a$10$abcdefghijklmnopqrstuvwxyzABC";
+    const salt = await bcrypt.genSalt(BCRYPT_SALT_ROUNDS);
+    const dummyHash = await bcrypt.hash(BCRYPT_DUMMY_PASSWORD, salt);
     const targetHash = existedUser ? existedUser.password : dummyHash;
 
     const isMatch = await bcrypt.compare(password, targetHash);
@@ -207,7 +215,8 @@ const authService = {
     const { username, password } = data;
     const existedUser = await User.findOne({ where: { username: username } });
 
-    const dummyHash = "$2a$10$abcdefghijklmnopqrstuvwxyzABC";
+    const salt = await bcrypt.genSalt(BCRYPT_SALT_ROUNDS);
+    const dummyHash = await bcrypt.hash(BCRYPT_DUMMY_PASSWORD, salt);
     const targetHash = existedUser ? existedUser.password : dummyHash;
 
     const isMatch = await bcrypt.compare(password, targetHash);
@@ -301,7 +310,8 @@ const authService = {
     const { username, password } = data;
     const existedUser = await User.findOne({ where: { username: username } });
 
-    const dummyHash = "$2a$10$abcdefghijklmnopqrstuvwxyzABC";
+    const salt = await bcrypt.genSalt(BCRYPT_SALT_ROUNDS);
+    const dummyHash = await bcrypt.hash(BCRYPT_DUMMY_PASSWORD, salt);
     const targetHash = existedUser ? existedUser.password : dummyHash;
 
     const singlePassword = Array.isArray(password) ? password[0] : password; //only get the first element
@@ -395,7 +405,8 @@ const authService = {
 
     const { username, password } = data;
     const existedUser = await User.findOne({ where: { username: username } });
-    const dummyHash = "$2a$10$abcdefghijklmnopqrstuvwxyzABC";
+    const salt = await bcrypt.genSalt(BCRYPT_SALT_ROUNDS);
+    const dummyHash = await bcrypt.hash(BCRYPT_DUMMY_PASSWORD, salt);
     const targetHash = existedUser ? existedUser.password : dummyHash;
 
     const singlePassword = Array.isArray(password) ? password[0] : password;
@@ -486,7 +497,8 @@ const authService = {
     const { username, password, "stay-logged-in": isStayLoggedIn } = data;
     const existedUser = await User.findOne({ where: { username: username } });
 
-    const dummyHash = "$2a$10$abcdefghijklmnopqrstuvwxyzABC";
+    const salt = await bcrypt.genSalt(BCRYPT_SALT_ROUNDS);
+    const dummyHash = await bcrypt.hash(BCRYPT_DUMMY_PASSWORD, salt);
     const targetHash = existedUser ? existedUser.password : dummyHash;
 
     const isMatch = await bcrypt.compare(password, targetHash);
@@ -543,7 +555,8 @@ const authService = {
     const { username, password } = data;
     const existedUser = await User.findOne({ where: { username: username } });
 
-    const dummyHash = "$2a$10$abcdefghijklmnopqrstuvwxyzABC";
+    const salt = await bcrypt.genSalt(BCRYPT_SALT_ROUNDS);
+    const dummyHash = await bcrypt.hash(BCRYPT_DUMMY_PASSWORD, salt);
     const targetHash = existedUser ? existedUser.password : dummyHash;
 
     const isMatch = await bcrypt.compare(password, targetHash);
@@ -567,18 +580,18 @@ const authService = {
 
     const existedUser = await User.findOne({ where: { id: userId } });
 
-    const dummyHash = "$2a$10$abcdefghijklmnopqrstuvwxyzABC";
+    const salt = await bcrypt.genSalt(BCRYPT_SALT_ROUNDS);
+    const dummyHash = await bcrypt.hash(BCRYPT_DUMMY_PASSWORD, salt);
     const targetHash = existedUser ? existedUser.password : dummyHash;
 
     const isMatch = await bcrypt.compare(currentPassword, targetHash);
-
 
     if (!existedUser || !isMatch) {
       const key = `change-pw-attempts:${userId}`;
       const attempts = await redisClient.incr(key);
 
       if (attempts === 1) {
-         await redisClient.expire(key, 15 * 60);
+        await redisClient.expire(key, 15 * 60);
       }
 
       if (attempts > 5) {
@@ -589,14 +602,9 @@ const authService = {
 
     await redisClient.del(`change-pw-attempts:${userId}`);
 
-    const saltRounds = 10;
-    const salt = await bcrypt.genSalt(saltRounds);
     const hashedPassword = await bcrypt.hash(newPassword, salt);
 
-    await User.update(
-      { password: hashedPassword },
-      { where: { id: userId } },
-    );
+    await User.update({ password: hashedPassword }, { where: { id: userId } });
   },
 
   async generateFogotPasswordToken(data) {
@@ -628,10 +636,8 @@ const authService = {
   },
 
   async resetSecurePasswordBrokenLogic(data) {
-    const {
-      "new-password": newPassword,
-      "temp-forgot-password-token": token,
-    } = data;
+    const { "new-password": newPassword, "temp-forgot-password-token": token } =
+      data;
 
     const tokenValue = crypto.createHash("sha256").update(token).digest("hex");
 
@@ -648,8 +654,7 @@ const authService = {
       throw new AppError(401, "Token is invalid or expired");
     }
 
-    const saltRounds = 10;
-    const salt = await bcrypt.genSalt(saltRounds);
+    const salt = await bcrypt.genSalt(BCRYPT_SALT_ROUNDS);
     const hashedPassword = await bcrypt.hash(newPassword, salt);
 
     await User.update(
@@ -706,8 +711,7 @@ const authService = {
       throw new AppError(401, "Token is invalid or expired");
     }
 
-    const saltRounds = 10;
-    const salt = await bcrypt.genSalt(saltRounds);
+    const salt = await bcrypt.genSalt(BCRYPT_SALT_ROUNDS);
     const hashedPassword = await bcrypt.hash(newPassword, salt);
 
     await User.update(
@@ -721,7 +725,8 @@ const authService = {
     const { username, password } = data;
     const existedUser = await User.findOne({ where: { username: username } });
 
-    const dummyHash = "$2a$10$abcdefghijklmnopqrstuvwxyzABC";
+    const salt = await bcrypt.genSalt(BCRYPT_SALT_ROUNDS);
+    const dummyHash = await bcrypt.hash(BCRYPT_DUMMY_PASSWORD, salt);
     const targetHash = existedUser ? existedUser.password : dummyHash;
 
     const isMatch = await bcrypt.compare(password, targetHash);
@@ -756,7 +761,8 @@ const authService = {
     const { username, password } = data;
     const existedUser = await User.findOne({ where: { username: username } });
 
-    const dummyHash = "$2a$10$abcdefghijklmnopqrstuvwxyzABC";
+    const salt = await bcrypt.genSalt(BCRYPT_SALT_ROUNDS);
+    const dummyHash = await bcrypt.hash(BCRYPT_DUMMY_PASSWORD, salt);
     const targetHash = existedUser ? existedUser.password : dummyHash;
 
     const isMatch = await bcrypt.compare(password, targetHash);

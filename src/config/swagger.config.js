@@ -125,6 +125,10 @@ const options = {
         description: "Vulnerable authentication endpoints for testing",
       },
       {
+        name: "V1 - JWT (Vulnerable)",
+        description: "Vulnerable JWT endpoints for testing",
+      },
+      {
         name: "V2 - Authentication (Secure)",
         description: "Secure authentication endpoints with fixes",
       },

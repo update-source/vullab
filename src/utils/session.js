@@ -7,7 +7,7 @@ const { redisClient } = require("../config/redis.config");
  * @param {number} userId - The user ID whose sessions should be invalidated
  * @returns {Promise<number>} Number of sessions deleted
  */
-async function invalidateAllUserSessions(userId) {
+const invalidateAllUserSessions = async (userId) => {
   try {
     const prefix = process.env.REDIS_SESSION_PREFIX || "vulab:";
     const pattern = `${prefix}*`; // Match all session keys
@@ -49,35 +49,35 @@ async function invalidateAllUserSessions(userId) {
     console.error("Failed to invalidate user sessions:", error);
     throw error;
   }
-}
+};
 
 /**
  * Promisify req.session.regenerate()
  * @param {Object} session - Express session object
  * @returns {Promise<void>}
  */
-function regenerateSession(session) {
+const regenerateSession = (session) => {
   return new Promise((resolve, reject) => {
     session.regenerate((err) => {
       if (err) reject(err);
       else resolve();
     });
   });
-}
+};
 
 /**
  * Promisify req.session.destroy()
  * @param {Object} session - Express session object
  * @returns {Promise<void>}
  */
-function destroySession(session) {
+const destroySession = (session) => {
   return new Promise((resolve, reject) => {
     session.destroy((err) => {
       if (err) reject(err);
       else resolve();
     });
   });
-}
+};
 
 module.exports = {
   invalidateAllUserSessions,
