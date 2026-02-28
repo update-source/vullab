@@ -29,6 +29,19 @@ const jwtController = {
       next(error);
     }
   },
+
+  async jwtSecureAuthenticationBypassViaWeakSigningKey(req, res, next) {
+    try {
+      const user =
+        await jwtService.jwtSecureAuthenticationBypassViaWeakSigningKey(
+          req.body,
+        );
+      const token = generateAccessToken(user);
+      return successResponse(res, token, "Login successfully");
+    } catch (error) {
+      next(error);
+    }
+  },
 };
 
 module.exports = jwtController;

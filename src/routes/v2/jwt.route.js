@@ -148,4 +148,65 @@ router.post(
   jwtController.jwtSecureAuthenticationBypassViaFlawedSignatureVerification,
 );
 
+/**
+ * @swagger
+ * /api/v2/jwt/weak-signing-key/login:
+ *   post:
+ *     tags: [V2 - JWT (Secure)]
+ *     summary: Secure JWT login (fixed weak signing key)
+ *     description: |
+ *       **This is the SECURE version** of the JWT login endpoint.
+ *       It correctly signs the token using a strong secure secret key.
+ *
+ *       **Differences from vulnerable v1:**
+ *       - v1 uses a weak, predictable secret (`secret1`) that can be easily cracked via brute-force or dictionary attacks.
+ *       - v2 uses secret key from environment variable that is mathematically infeasible to guess or crack.
+ *
+ *       **Security properties:**
+ *       - Uses a strong HMAC secret key for signing
+ *       - Prevents offline brute-force attacks against the signature
+ *       - Prevents Account Takeover (ATO) via forged tokens signed with a cracked key
+ *
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         application/json:
+ *           schema:
+ *             $ref: '#/components/schemas/LoginRequest'
+ *           examples:
+ *             valid_credentials:
+ *               summary: Login with valid credentials
+ *               value:
+ *                 username: "carlos"
+ *                 password: "SecurePass123!"
+ *     responses:
+ *       200:
+ *         description: Login successful — returns a properly signed JWT
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 success:
+ *                   type: boolean
+ *                   example: true
+ *                 message:
+ *                   type: string
+ *                   example: "Login successfully"
+ *                 data:
+ *                   type: string
+ *                   description: Signed JWT token using a strong secret
+ *                   example: "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpZCI6MSwidXNlcm5hbWUiOiJjYXJsb3MiLCJyb2xlIjoidXNlciJ9.signature"
+ *       400:
+ *         description: Validation error
+ *       401:
+ *         description: Invalid username or password
+ */
+router.post(
+  "/weak-signing-key/login",
+  loginRules,
+  handleValidation,
+  jwtController.jwtSecureAuthenticationBypassViaWeakSigningKey,
+);
+
 module.exports = router;

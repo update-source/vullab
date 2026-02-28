@@ -222,4 +222,63 @@ router.get(
   requireAuthJwt,
   profileController.getProfile,
 );
+
+/**
+ * @swagger
+ * /api/v2/profile/jwt/weak-signing-key:
+ *   get:
+ *     tags: [V2 - Profile (Secure)]
+ *     summary: Get profile via JWT with strongly verified signature (fixed weak signing key)
+ *     description: |
+ *       **This is the SECURE version** of the JWT-protected profile endpoint.
+ *
+ *       **Security fix:** This route uses `jwt.verify(token, process.env.JWT_SECRET)` with a strong, high-entropy secret.
+ *       The token signature is strictly verified against this complex secret.
+ *
+ *       **Why this prevents ATO via Weak Key Cracking:**
+ *       An attacker who obtains a valid token cannot crack the signature offline because
+ *       the secret key is sufficiently long and random. Consequently, they cannot forge their own tokens
+ *       with arbitrary payloads (e.g., changing `id` to a victim's user ID).
+ *
+ *       **Test steps (should FAIL with forged token):**
+ *       1. Login to get a legitimately signed token.
+ *       2. Attempt to crack the token signature offline (will fail for v2 due to the strong secret).
+ *       3. Any spoofed token will be rejected by this endpoint because it is correctly verified against the strong secret.
+ *       4. Send a forged token to this endpoint → **401 Unauthorized** (invalid signature).
+ *
+ *     security:
+ *       - bearerAuth: []
+ *     responses:
+ *       200:
+ *         description: User profile fetched successfully (only if legitimately signed token provided)
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 success:
+ *                   type: boolean
+ *                   example: true
+ *                 message:
+ *                   type: string
+ *                   example: "Profile fetched successfully"
+ *                 data:
+ *                   type: object
+ *       401:
+ *         description: |
+ *           Unauthorized. Possible reasons:
+ *           - Missing Authorization header
+ *           - Token signature is missing or securely rejected (forged token)
+ *           - Token expired
+ *         content:
+ *           application/json:
+ *             schema:
+ *               $ref: '#/components/schemas/ErrorResponse'
+ */
+router.get(
+  "/jwt/weak-signing-key",
+  requireAuthJwt,
+  profileController.getProfile,
+);
+
 module.exports = router;
