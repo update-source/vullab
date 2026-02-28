@@ -13,6 +13,7 @@ const {
   requireAuthJwt,
   requireAuthJwtButFlawedSignatureVerification,
   requireAuthJwtButUnverifiedSignature,
+  requireAuthJwtButWeakSigningKey,
 } = require("./auth-jwt.middleware");
 
 const {
@@ -35,6 +36,7 @@ module.exports = {
   registerRules,
   handleValidation,
   requireTrustedHost,
+  requireAuthJwtButWeakSigningKey,
   requireAuthJwtButFlawedSignatureVerification,
   requireAuthJwtButUnverifiedSignature,
   generateForgotPasswordTokenRules,

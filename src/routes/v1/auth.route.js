@@ -7,7 +7,6 @@ const {
   handleValidation,
   loginRules,
   otpRules,
-  registerRules,
   requireAuthSession,
   requirePendingOtpSession,
   resetPasswordBrokenLogicRules,

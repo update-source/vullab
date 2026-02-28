@@ -178,4 +178,50 @@ router.post(
   jwtController.jwtAuthenticationBypassViaFlawedSignatureVerification,
 );
 
+
+/**
+ * @swagger
+ * /api/v1/jwt/weak-signing-key/login:
+ *   post:
+ *     tags: [V1 - JWT (Vulnerable)]
+ *     summary: Login and get JWT token
+ *     description: |
+ *       Standard login endpoint that validates credentials and returns a signed JWT token.
+ *       **This endpoint itself has no vulnerability** — it correctly signs the token with a weak key.
+ *
+ *       The vulnerability lies in the fact that the token is signed using a weak secret.
+ *       Because the secret is short or easily guessable (like a dictionary word), it can be brute-forced.
+ *
+ *       **How to exploit (Account Takeover via Weak Key):**
+ *       1. Login with valid credentials to retrieve a JWT
+ *       2. Use a brute-force tool (e.g., `hashcat`, `john the ripper`) to crack the signature offline
+ *       3. Once the weak key is discovered, use it to sign a forged JWT with victim's data
+ *       4. Send the new, validly-signed forged token to the corresponding profile endpoint
+ *
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         application/json:
+ *           schema:
+ *             $ref: '#/components/schemas/LoginRequest'
+ *           examples:
+ *             valid_credentials:
+ *               summary: Login with valid credentials
+ *               value:
+ *                 username: "carlos"
+ *                 password: "SecurePass123!"
+ *     responses:
+ *       200:
+ *         description: Login successful — returns a signed JWT access token
+ *       400:
+ *         description: Validation error
+ *       401:
+ *         description: Invalid username or password
+ */
+router.post(
+  "/weak-signing-key/login",
+  loginRules,
+  handleValidation,
+  jwtController.jwtAuthenticationBypassViaWeakSigningKey,
+);
 module.exports = router;

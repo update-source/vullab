@@ -5,8 +5,14 @@ const {
 } = require("../config/jwt.config");
 const jwt = require("jsonwebtoken");
 
+const WEAK_JWT_SECRET = "secret1"
+
 const generateAccessToken = (payload) => {
   return jwt.sign(payload, JWT_SECRET, accessTokenOptions);
+};
+
+const generateAccessTokenWithWeakSecret = (payload) => {
+  return jwt.sign(payload, WEAK_JWT_SECRET, accessTokenOptions);
 };
 
 const generateRefreshToken = (payload) => {
@@ -38,6 +44,13 @@ const verifyUnsignedAccessToken = (token) => {
     algorithms: [refreshTokenOptions.algorithm, "none"]
   });
 };
+const verifyAccessTokenWithWeakSecret = (token) => {
+  return jwt.verify(token, WEAK_JWT_SECRET, {
+    issuer: accessTokenOptions.issuer,
+    audience: accessTokenOptions.audience,
+    algorithms: [accessTokenOptions.algorithm],
+  });
+}
 const decodeToken = (token) => {
   return jwt.decode(token);
 };
@@ -46,7 +59,9 @@ module.exports = {
   verifyAccessToken,
   verifyRefreshToken,
   verifyUnsignedAccessToken,
+  verifyAccessTokenWithWeakSecret,
   decodeToken,
   generateAccessToken,
   generateRefreshToken,
+  generateAccessTokenWithWeakSecret,
 };

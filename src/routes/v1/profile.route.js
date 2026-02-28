@@ -4,6 +4,7 @@ const { profileController } = require("../../controllers/v1");
 const {
   requireAuthJwtButFlawedSignatureVerification,
   requireAuthJwtButUnverifiedSignature,
+  requireAuthJwtButWeakSigningKey,
   requireAuthSession,
   requireAuthSessionIgnoreStage,
   requireAuthSessionOrCookie,
@@ -236,6 +237,39 @@ router.get(
 router.get(
   "/jwt/flawed-signature-verification",
   requireAuthJwtButFlawedSignatureVerification,
+  profileController.getProfile,
+);
+
+/**
+ * @swagger
+ * /api/v1/profile/jwt/weak-signing-key:
+ *   get:
+ *     tags: [Profile]
+ *     summary: Get profile via JWT signed with a weak key (vulnerable to brute-forcing)
+ *     description: |
+ *       Protected endpoint vulnerable to **JWT Authentication Bypass via Weak Signing Key**.
+ *
+ *       **Root cause:** The server uses a very weak, easily guessable secret key (e.g., "secret1") to sign JWT tokens.
+ *
+ *       **Exploit steps (Account Takeover):**
+ *       1. Login at `POST /api/v1/jwt/weak-signing-key/login` to get a real JWT
+ *       2. Use a cracking tool like `hashcat` to brute-force the secret offline
+ *       3. Once you crack the key (e.g., "secret1"), use it to sign a new forged JWT
+ *       4. In the forged JWT payload, change the `username` or `id` to the victim's (e.g., `administrator`)
+ *       5. Send the perfectly signed forged token here as `Authorization: Bearer <forged_token>`
+ *       6. The server validates the signature correctly, but grants you access to the victim's account
+ *
+ *     security:
+ *       - bearerAuth: []
+ *     responses:
+ *       200:
+ *         description: User profile fetched successfully (including forged tokens verified with the weak key)
+ *       401:
+ *         description: Unauthorized — missing, malformed, or fake signature token
+ */
+router.get(
+  "/jwt/weak-signing-key",
+  requireAuthJwtButWeakSigningKey,
   profileController.getProfile,
 );
 
