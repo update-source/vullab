@@ -83,4 +83,99 @@ router.post(
   handleValidation,
   jwtController.jwtAuthenticationBypassViaUnverifiedSignature,
 );
+
+/**
+ * @swagger
+ * /api/v1/jwt/flawed-signature-verification/login:
+ *   post:
+ *     tags: [V1 - JWT (Vulnerable)]
+ *     summary: Login and get JWT token (no vulnerability here)
+ *     description: |
+ *       Standard login endpoint that validates credentials and returns a signed JWT token.
+ *       **This endpoint itself has no vulnerability** — it correctly signs the token with HS256.
+ *
+ *       The vulnerability exists in the protected route that consumes this token:
+ *       **`GET /api/v1/profile/jwt/flawed-signature-verification`**
+ *
+ *       **Root cause:** The protected route accepts JWT tokens with `algorithm: "none"`.
+ *       It uses `jwt.verify()` but allows the "none" algorithm in the verification options,
+ *       which means tokens WITHOUT a signature are treated as valid.
+ *
+ *       **How to exploit (Account Takeover via Algorithm Confusion):**
+ *       1. Login here with your own credentials to obtain a valid JWT
+ *       2. Decode the JWT structure:
+ *          - Header: `{"alg": "HS256", "typ": "JWT"}`
+ *          - Payload: `{"id": 1, "username": "carlos", "iat": ..., "exp": ...}`
+ *          - Signature: `<valid_signature>`
+ *       3. **Modify the header** to use algorithm "none":
+ *          - New header: `{"alg": "none", "typ": "JWT"}`
+ *       4. **Modify the payload** to impersonate the victim:
+ *          - Change `id` to victim's user ID (e.g., `"id": 2`)
+ *          - Or change `username` to victim's username (e.g., `"username": "administrator"`)
+ *       5. **Create forged token without signature**:
+ *          - Format: `base64url(header) + "." + base64url(payload) + "."` (note the trailing dot with no signature)
+ *          - Example: `eyJhbGciOiJub25lIiwidHlwIjoiSldUIn0.eyJpZCI6MiwidXNlcm5hbWUiOiJhZG1pbmlzdHJhdG9yIn0.`
+ *       6. Send the forged token to `GET /api/v1/profile/jwt/flawed-signature-verification` → ATO
+ *
+ *       **Why this works:**
+ *       - The server's `verifyUnsignedAccessToken()` function includes `algorithm: "none"` in allowed algorithms
+ *       - `jwt.verify()` accepts tokens with `alg: none` and skips signature validation
+ *       - Attacker can forge any payload without knowing the JWT secret
+ *
+ *       **References:**
+ *       - https://portswigger.net/web-security/jwt/lab-jwt-authentication-bypass-via-flawed-signature-verification
+ *
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         application/json:
+ *           schema:
+ *             $ref: '#/components/schemas/LoginRequest'
+ *           examples:
+ *             valid_credentials:
+ *               summary: Login with valid credentials
+ *               value:
+ *                 username: "carlos"
+ *                 password: "SecurePass123!"
+ *     responses:
+ *       200:
+ *         description: Login successful — returns a signed JWT access token (HS256)
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 success:
+ *                   type: boolean
+ *                   example: true
+ *                 message:
+ *                   type: string
+ *                   example: "Login successfully"
+ *                 data:
+ *                   type: string
+ *                   description: Valid JWT signed with HS256 — but can be modified to use "none" algorithm
+ *                   example: "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpZCI6MSwidXNlcm5hbWUiOiJjYXJsb3MiLCJpYXQiOjE3MDk4MjY0MDAsImV4cCI6MTcwOTgyNzMwMH0.signature_here"
+ *       400:
+ *         description: Validation error (missing or invalid fields)
+ *         content:
+ *           application/json:
+ *             schema:
+ *               $ref: '#/components/schemas/ErrorResponse'
+ *       401:
+ *         description: Invalid username or password
+ *         content:
+ *           application/json:
+ *             schema:
+ *               $ref: '#/components/schemas/ErrorResponse'
+ *             example:
+ *               status: "error"
+ *               message: "Invalid username or password"
+ */
+router.post(
+  "/flawed-signature-verification/login",
+  loginRules,
+  handleValidation,
+  jwtController.jwtAuthenticationBypassViaFlawedSignatureVerification,
+);
+
 module.exports = router;
