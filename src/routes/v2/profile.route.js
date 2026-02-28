@@ -162,4 +162,64 @@ router.get(
   profileController.getProfile,
 );
 
+/**
+ * @swagger
+ * /api/v2/profile/jwt/flawed-signature-verification:
+ *   get:
+ *     tags: [V2 - Profile (Secure)]
+ *     summary: Get profile via JWT with securely verified signature (fixed algorithm confusion)
+ *     description: |
+ *       **This is the SECURE version** of the JWT-protected profile endpoint.
+ *
+ *       **Security fix:** This route uses strictly configured `jwt.verify(token, secret)` instead of allowing `"none"`.
+ *       The middleware explicitly ensures tokens using the `"none"` algorithm are completely rejected.
+ *
+ *       **Differences from vulnerable v1:**
+ *       - v1: `verifyUnsignedAccessToken` allows `algorithms: ["HS256", "none"]` — accepting forged, unsigned tokens.
+ *       - v2: `verifyAccessToken` explicitly limits `algorithms: ["HS256"]` — actively rejecting `"none"`.
+ *
+ *       **Why this prevents ATO via Algorithm Confusion:**
+ *       When an attacker tampers with the token structure, modifies the header to use `alg: "none"`,
+ *       and removes the signature, `jwt.verify()` notices that the algorithm is unapproved.
+ *       The parsing fails immediately, raising a `JsonWebTokenError`, preventing account access.
+ *
+ *       **Test steps (should FAIL with forged token):**
+ *       1. Login to get a valid token.
+ *       2. Change header to use `alg: none` and remove the signature payload.
+ *       3. Send to this endpoint → **401 Unauthorized** (invalid algorithm / missing signature).
+ *
+ *     security:
+ *       - bearerAuth: []
+ *     responses:
+ *       200:
+ *         description: User profile fetched successfully (only if legitimately signed token provided)
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 success:
+ *                   type: boolean
+ *                   example: true
+ *                 message:
+ *                   type: string
+ *                   example: "Profile fetched successfully"
+ *                 data:
+ *                   type: object
+ *       401:
+ *         description: |
+ *           Unauthorized. Possible reasons:
+ *           - Missing Authorization header
+ *           - Token signature is missing or tampered with
+ *           - Algorithm mismatch (e.g., `alg: "none"`)
+ *         content:
+ *           application/json:
+ *             schema:
+ *               $ref: '#/components/schemas/ErrorResponse'
+ */
+router.get(
+  "/jwt/flawed-signature-verification",
+  requireAuthJwt,
+  profileController.getProfile,
+);
 module.exports = router;

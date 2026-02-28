@@ -86,4 +86,66 @@ router.post(
   jwtController.jwtSecureAuthenticationBypassViaUnverifiedSignature,
 );
 
+/**
+ * @swagger
+ * /api/v2/jwt/flawed-signature-verification/login:
+ *   post:
+ *     tags: [V2 - JWT (Secure)]
+ *     summary: Secure JWT login (fixed flawed signature verification)
+ *     description: |
+ *       **This is the SECURE version** of the JWT login endpoint.
+ *       It correctly signs the token, and the protected route (`GET /api/v2/profile/jwt/flawed-signature-verification`)
+ *       uses `jwt.verify()` without allowing the `"none"` algorithm, breaking the algorithm confusion attack.
+ *
+ *       **Differences from vulnerable v1:**
+ *       - v1 `jwt.verify()` allows `algorithms: ["HS256", "none"]` — accepting unsigned tokens.
+ *       - v2 `jwt.verify()` strictly enforces `algorithms: ["HS256"]` — rejecting unsigned tokens.
+ *
+ *       **Security properties:**
+ *       - Rejects tokens with `alg: none`
+ *       - Validates cryptographic signature strictly
+ *       - Prevents Account Takeover (ATO) via algorithm confusion
+ *
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         application/json:
+ *           schema:
+ *             $ref: '#/components/schemas/LoginRequest'
+ *           examples:
+ *             valid_credentials:
+ *               summary: Login with valid credentials
+ *               value:
+ *                 username: "carlos"
+ *                 password: "SecurePass123!"
+ *     responses:
+ *       200:
+ *         description: Login successful — returns a properly signed JWT
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 success:
+ *                   type: boolean
+ *                   example: true
+ *                 message:
+ *                   type: string
+ *                   example: "Login successfully"
+ *                 data:
+ *                   type: string
+ *                   description: Signed JWT token
+ *                   example: "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpZCI6MSwidXNlcm5hbWUiOiJjYXJsb3MiLCJyb2xlIjoidXNlciJ9.signature"
+ *       400:
+ *         description: Validation error
+ *       401:
+ *         description: Invalid username or password
+ */
+router.post(
+  "/flawed-signature-verification/login",
+  loginRules,
+  handleValidation,
+  jwtController.jwtSecureAuthenticationBypassViaFlawedSignatureVerification,
+);
+
 module.exports = router;
