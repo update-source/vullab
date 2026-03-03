@@ -3,6 +3,7 @@ const router = express.Router();
 const { profileController } = require("../../controllers/v1");
 const {
   requireAuthJwtButFlawedSignatureVerification,
+  requireAuthJwtButJwkHeaderInjection,
   requireAuthJwtButUnverifiedSignature,
   requireAuthJwtButWeakSigningKey,
   requireAuthSession,
@@ -273,4 +274,62 @@ router.get(
   profileController.getProfile,
 );
 
+/**
+ * @swagger
+ * /api/v1/profile/jwt/jwk-header-injection:
+ *   get:
+ *     tags: [Profile]
+ *     summary: Get profile via JWT with JWK Header Injection (vulnerable)
+ *     description: |
+ *       Protected endpoint vulnerable to **JWT Authentication Bypass via JWK Header Injection**.
+ *
+ *       **Root cause:** The middleware (`requireAuthJwtButJwkHeaderInjection`) calls
+ *       `verifyAccessTokenViaJwk()`, which reads the `jwk` field from the token's own header
+ *       and uses it as the verification key. An attacker can embed their own RSA public key
+ *       in the header and sign the token with the matching private key — the server
+ *       will verify it successfully.
+ *
+ *
+ *       **Exploit steps (Account Takeover):**
+ *       1. Generate your own RSA key pair
+ *       2. Build a JWT with header `{ "alg": "RS256", "jwk": { <your public key> } }`
+ *       3. Set payload `{ "username": "administrator" }` and sign with your private key
+ *       4. Send `Authorization: Bearer <forged_token>` to this endpoint
+ *       5. Server trusts your embedded `jwk`, verifies successfully → returns admin profile
+ *
+ *
+ *       **References:**
+ *       - https://portswigger.net/web-security/jwt/lab-jwt-authentication-bypass-via-jwk-header-injection
+ *
+ *     security:
+ *       - bearerAuth: []
+ *     responses:
+ *       200:
+ *         description: User profile fetched successfully (including forged tokens with attacker-embedded JWK)
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 success:
+ *                   type: boolean
+ *                   example: true
+ *                 message:
+ *                   type: string
+ *                   example: "Profile fetched successfully"
+ *                 data:
+ *                   type: object
+ *                   description: Profile of whoever's `username` was in the forged token payload
+ *       401:
+ *         description: Unauthorized — missing or malformed token
+ *         content:
+ *           application/json:
+ *             schema:
+ *               $ref: '#/components/schemas/ErrorResponse'
+ */
+router.get(
+  "/jwt/jwk-header-injection",
+  requireAuthJwtButJwkHeaderInjection,
+  profileController.getProfile,
+);
 module.exports = router;

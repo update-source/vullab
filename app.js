@@ -36,14 +36,6 @@ app.use("/api/v2", v2App);
 
 const { errorHandler } = require("./src/middlewares");
 
-app.get("/", (req, res) => {
-  res.render("index", {
-    title: "Trang Chủ",
-    message: "Xin chào, đây là Pug!",
-  });
-});
-
-// Global Error Handler must be the last middleware
 app.use(errorHandler);
 
 // Start server

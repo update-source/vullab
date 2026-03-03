@@ -178,7 +178,6 @@ router.post(
   jwtController.jwtAuthenticationBypassViaFlawedSignatureVerification,
 );
 
-
 /**
  * @swagger
  * /api/v1/jwt/weak-signing-key/login:
@@ -223,5 +222,74 @@ router.post(
   loginRules,
   handleValidation,
   jwtController.jwtAuthenticationBypassViaWeakSigningKey,
+);
+/**
+ * @swagger
+ * /api/v1/jwt/jwk-header-injection/login:
+ *   post:
+ *     tags: [V1 - JWT (Vulnerable)]
+ *     summary: Vulnerable JWT login (JWK Header Injection)
+ *     description: |
+ *       Login endpoint for the **JWT Authentication Bypass via JWK Header Injection** lab.
+ *
+ *       **Vulnerability:** The protected route (`GET /api/v1/profile/jwt/jwk-header-injection`)
+ *       verifies the token using the `jwk` field embedded inside the token's own header.
+ *       This means an attacker can supply their own RSA key pair, embed the public key as `jwk`
+ *       in the header, sign the token with the matching private key, and the server will
+ *       blindly trust it — leading to full **Account Takeover (ATO)**.
+ *
+ *       **Exploit steps:**
+ *       1. Generate an RSA key pair (attacker-controlled)
+ *       2. Login here to get a legitimate token and observe its structure
+ *       3. Craft a forged token:
+ *          - Set header: `{ "alg": "RS256", "jwk": { <attacker's public key> } }`
+ *          - Set payload: `{ "username": "administrator", "role": "admin", ... }`
+ *          - Sign with attacker's **private** key
+ *       4. Send to `GET /api/v1/profile/jwt/jwk-header-injection` as `Authorization: Bearer <forged_token>`
+ *       5. Server extracts `jwk` from the header, trusts it, verifies signature → **ATO**
+ *       **References:**
+ *       - https://portswigger.net/web-security/jwt/lab-jwt-authentication-bypass-via-jwk-header-injection
+ *       - https://www.rfc-editor.org/rfc/rfc7515#section-4.1.3
+ *
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         application/json:
+ *           schema:
+ *             $ref: '#/components/schemas/LoginRequest'
+ *           examples:
+ *             valid_credentials:
+ *               summary: Login with valid credentials
+ *               value:
+ *                 username: "carlos"
+ *                 password: "SecurePass123!"
+ *     responses:
+ *       200:
+ *         description: Login successful — returns a JWT signed with server's RSA private key
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 success:
+ *                   type: boolean
+ *                   example: true
+ *                 message:
+ *                   type: string
+ *                   example: "Login successfully"
+ *                 data:
+ *                   type: string
+ *                   description: RS256-signed JWT — use this to study the token structure before forging
+ *                   example: "eyJhbGciOiJSUzI1NiIsInR5cCI6IkpXVCJ9.eyJpZCI6MSwidXNlcm5hbWUiOiJjYXJsb3MifQ.signature"
+ *       400:
+ *         description: Validation error
+ *       401:
+ *         description: Invalid username or password
+ */
+router.post(
+  "/jwk-header-injection/login",
+  loginRules,
+  handleValidation,
+  jwtController.jwtAuthenticationBypassViaJwkHeaderInjection,
 );
 module.exports = router;

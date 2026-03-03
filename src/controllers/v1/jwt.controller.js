@@ -1,6 +1,10 @@
 const { jwtService } = require("../../services/v1");
 const { successResponse } = require("../../utils/response");
-const { generateAccessToken, generateAccessTokenWithWeakSecret } = require("../../utils/jwt");
+const {
+  generateAccessToken,
+  generateAccessTokenWithRS256Alg,
+  generateAccessTokenWithWeakSecret,
+} = require("../../utils/jwt");
 const AppError = require("../../utils/AppError");
 
 const jwtController = {
@@ -36,6 +40,17 @@ const jwtController = {
         req.body,
       );
       const token = generateAccessTokenWithWeakSecret(user);
+      return successResponse(res, token, "Login successfully");
+    } catch (error) {
+      next(error);
+    }
+  },
+
+  async jwtAuthenticationBypassViaJwkHeaderInjection(req, res, next) {
+    try {
+      const user =
+        await jwtService.jwtAuthenticationBypassViaJwkHeaderInjection(req.body);
+      const token = generateAccessTokenWithRS256Alg(user);
       return successResponse(res, token, "Login successfully");
     } catch (error) {
       next(error);
