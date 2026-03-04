@@ -11,6 +11,7 @@ const {
 
 const {
   requireAuthJwtButFlawedSignatureVerification,
+  requireAuthJwtButJkuHeaderInjection,
   requireAuthJwtButJwkHeaderInjection,
   requireAuthJwtButUnverifiedSignature,
   requireAuthJwtButWeakSigningKey,
@@ -39,6 +40,7 @@ module.exports = {
   requireTrustedHost,
   requireAuthJwtWithHS256Alg,
   requireAuthJwtWithRS256Alg,
+  requireAuthJwtButJkuHeaderInjection,
   requireAuthJwtButWeakSigningKey,
   requireAuthJwtButJwkHeaderInjection,
   requireAuthJwtButFlawedSignatureVerification,

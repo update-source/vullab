@@ -3,6 +3,7 @@ const express = require("express");
 const authRouteV2 = require("../routes/v2/auth.route");
 const jwtRouteV2 = require("../routes/v2/jwt.route");
 const profileRouteV2 = require("../routes/v2/profile.route");
+const wellKnownRouteV2 = require("../routes/v2/well-known.route");
 
 const v2App = express();
 
@@ -20,5 +21,6 @@ const v2App = express();
 v2App.use("/auth", authRouteV2);
 v2App.use("/jwt", jwtRouteV2);
 v2App.use("/profile", profileRouteV2);
+v2App.use("/.well-known", wellKnownRouteV2);
 
 module.exports = v2App;

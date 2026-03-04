@@ -1,7 +1,7 @@
 const express = require("express");
 const router = express.Router();
 const AppError = require("../../utils/AppError");
-const { JWT_PUBLIC_KEY } = require("../../config/jwt.config");
+const { JWT_KID, JWT_PUBLIC_KEY } = require("../../config/jwt.config");
 const { generateJwkFromPem } = require("../../utils/jwt");
 
 router.get("/jwks.json", (req, res, next) => {
@@ -13,7 +13,7 @@ router.get("/jwks.json", (req, res, next) => {
           ...jwk,
           use: "sig",
           alg: "RS256",
-          kid: "vullab-rs256-key-1",
+          kid: JWT_KID,
         },
       ],
     };

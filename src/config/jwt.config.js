@@ -9,6 +9,7 @@ const JWT_ACCESS_EXPIRES_IN = process.env.JWT_ACCESS_EXPIRES_IN || "15m";
 const JWT_REFRESH_EXPIRES_IN = process.env.JWT_REFRESH_EXPIRES_IN || "7d";
 const JWT_ISSUER = process.env.JWT_ISSUER || "vullab-api";
 const JWT_AUDIENCE = process.env.JWT_AUDIENCE || "vullab-client";
+const JWT_KID = process.env.JWT_KID || "vullab-rs256-key-1";
 const JWT_PRIVATE_KEY = fs.readFileSync(
   path.join(__dirname, "keys/private.key"),
   "utf8",
@@ -35,6 +36,7 @@ const refreshTokenOptions = {
 
 module.exports = {
   JWT_SECRET,
+  JWT_KID,
   JWT_PUBLIC_KEY,
   JWT_PRIVATE_KEY,
   WEAK_JWT_SECRET,

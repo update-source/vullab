@@ -292,4 +292,93 @@ router.post(
   handleValidation,
   jwtController.jwtAuthenticationBypassViaJwkHeaderInjection,
 );
+/**
+ * @swagger
+ * /api/v1/jwt/jku-header-injection/login:
+ *   post:
+ *     tags: [V1 - JWT (Vulnerable)]
+ *     summary: Vulnerable JWT login (JKU Header Injection)
+ *     description: |
+ *       Login endpoint for the **JWT Authentication Bypass via JKU Header Injection** lab.
+ *       (`jku` = JWK Set URL — defined in RFC 7515 §4.1.2)
+ *
+ *       **Vulnerability:** The protected route (`GET /api/v1/profile/jwt/jku-header-injection`)
+ *       verifies the token by fetching the JWKS from the URL specified in the token's own `jku`
+ *       header field, then selecting the key whose `kid` matches `decodedHeader.kid`.
+ *       Because the server **does not validate** that `jku` points to a trusted domain,
+ *       an attacker can host their own JWKS, embed its URL as `jku`, and sign the token
+ *       with the matching private key — leading to full **Account Takeover (ATO)**.
+ *
+ *       **Exploit steps:**
+ *       1. Generate an RSA key-pair (attacker-controlled)
+ *       2. Host a JWKS file containing the attacker's public key on a server you control:
+ *          ```json
+ *          { "keys": [{ "kty": "RSA", "kid": "vullab-rs256-key-1", ... }] }
+ *          ```
+ *       3. Login here to obtain a legitimate RS256 token and note its structure
+ *       4. Craft a forged token:
+ *          - Header: `{ "alg": "RS256", "kid": "vullab-rs256-key-1", "jku": "https://attacker.com/jwks.json" }`
+ *          - Payload: `{ "id": <victim_id>, "username": "administrator", ... }`
+ *          - Sign with attacker's **private** key
+ *       5. Send to `GET /api/v1/profile/jwt/jku-header-injection` as `Authorization: Bearer <forged_token>`
+ *       6. Server follows `jku`, fetches attacker's JWKS, verifies signature → **ATO**
+ *
+ *       **Root cause:** `verifyAccessTokenViaJku()` in `utils/jwt.js` uses `decodedHeader.jku`
+ *       without any allowlist check — any URL is trusted.
+ *
+ *       **References:**
+ *       - https://portswigger.net/web-security/jwt/lab-jwt-authentication-bypass-via-jku-header-injection
+ *       - https://www.rfc-editor.org/rfc/rfc7515#section-4.1.2
+ *
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         application/json:
+ *           schema:
+ *             $ref: '#/components/schemas/LoginRequest'
+ *           examples:
+ *             valid_credentials:
+ *               summary: Login with valid credentials
+ *               value:
+ *                 username: "carlos"
+ *                 password: "SecurePass123!"
+ *     responses:
+ *       200:
+ *         description: Login successful — returns an RS256-signed JWT (study structure before forging)
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 success:
+ *                   type: boolean
+ *                   example: true
+ *                 message:
+ *                   type: string
+ *                   example: "Login successfully"
+ *                 data:
+ *                   type: string
+ *                   description: |
+ *                     RS256-signed JWT. Decode the header to observe `kid` — reuse this value
+ *                     in your forged token's header so the server selects your attacker-hosted key.
+ *                   example: "eyJhbGciOiJSUzI1NiIsInR5cCI6IkpXVCIsImtpZCI6InZ1bGxhYi1yczI1Ni1rZXktMSJ9.eyJpZCI6MX0.signature"
+ *       400:
+ *         description: Validation error (missing or invalid fields)
+ *         content:
+ *           application/json:
+ *             schema:
+ *               $ref: '#/components/schemas/ErrorResponse'
+ *       401:
+ *         description: Invalid username or password
+ *         content:
+ *           application/json:
+ *             schema:
+ *               $ref: '#/components/schemas/ErrorResponse'
+ */
+router.post(
+  "/jku-header-injection/login",
+  loginRules,
+  handleValidation,
+  jwtController.jwtAuthenticationBypassViaJkuHeaderInjection,
+);
 module.exports = router;

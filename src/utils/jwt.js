@@ -1,4 +1,5 @@
 const {
+  JWT_KID,
   JWT_PRIVATE_KEY,
   JWT_PUBLIC_KEY,
   JWT_SECRET,
@@ -20,7 +21,7 @@ const generateAccessTokenWithWeakSecret = (payload) => {
 };
 
 const generateAccessTokenWithRS256Alg = (payload) => {
-  const options = { ...accessTokenOptions, algorithm: "RS256" };
+  const options = { ...accessTokenOptions, algorithm: "RS256", keyid: JWT_KID };
   return jwt.sign(payload, JWT_PRIVATE_KEY, options);
 };
 
@@ -87,6 +88,28 @@ const verifyAccessTokenViaJwk = (token) => {
   });
 };
 
+const fetchJwkByKid = async (url, kid) => {
+  const { keys } = await (await fetch(url)).json();
+  return keys.find((k) => k.kid === kid);
+};
+
+const verifyAccessTokenViaJku = async (token) => {
+  //To fit the scenario, instead of using JWT_PUBLIC_KEY directly, we will call api to get jwks
+  const decodedHeader = jwt.decode(token, { complete: true })?.header;
+  const port = process.env.PORT || 3500;
+  const jwksUrl =
+    decodedHeader?.jku ??
+    `http://localhost:${port}/api/v1/.well-known/jwks.json`;
+
+  const jwk = await fetchJwkByKid(jwksUrl, decodedHeader?.kid);
+  const pem = jwkToPem(jwk);
+  return jwt.verify(token, pem, {
+    issuer: accessTokenOptions.issuer,
+    audience: accessTokenOptions.audience,
+    algorithms: ["RS256"],
+  });
+};
+
 const generateJwkFromPem = (pem) => {
   return crypto.createPublicKey(pem).export({ format: "jwk" });
 };
@@ -98,6 +121,7 @@ const decodeToken = (token) => {
 module.exports = {
   decodeToken,
   verifyAccessTokenViaHS256Alg,
+  verifyAccessTokenViaJku,
   verifyRefreshToken,
   verifyAccessTokenViaJwk,
   verifyUnsignedAccessToken,

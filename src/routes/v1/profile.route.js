@@ -3,6 +3,7 @@ const router = express.Router();
 const { profileController } = require("../../controllers/v1");
 const {
   requireAuthJwtButFlawedSignatureVerification,
+  requireAuthJwtButJkuHeaderInjection,
   requireAuthJwtButJwkHeaderInjection,
   requireAuthJwtButUnverifiedSignature,
   requireAuthJwtButWeakSigningKey,
@@ -16,7 +17,7 @@ const {
  * @swagger
  * /api/v1/profile:
  *   get:
- *     tags: [Profile]
+ *     tags: [V1 - Profile (Vulnerable)]
  *     summary: Get user profile (requires logged_in stage)
  *     security:
  *       - cookieAuth: []
@@ -32,7 +33,7 @@ router.get("/", requireAuthSession, profileController.getProfile);
  * @swagger
  * /api/v1/profile/ignored-stage:
  *   get:
- *     tags: [Profile]
+ *     tags: [V1 - Profile (Vulnerable)]
  *     summary: Get profile (ignores session stage - vulnerable)
  *     security:
  *       - cookieAuth: []
@@ -51,7 +52,7 @@ router.get(
  * @swagger
  * /api/v1/profile/cookie:
  *   get:
- *     tags: [Profile]
+ *     tags: [V1 - Profile (Vulnerable)]
  *     summary: Get profile with flexible auth (session OR stay-logged-in cookie)
  *     description: |
  *       This endpoint accepts authentication via either:
@@ -110,7 +111,7 @@ router.get(
  * @swagger
  * /api/v1/profile/jwt/unverified-signature:
  *   get:
- *     tags: [Profile]
+ *     tags: [V1 - Profile (Vulnerable)]
  *     summary: Get profile via JWT with unverified signature (vulnerable)
  *     description: |
  *       Protected endpoint vulnerable to **Authentication Bypass via Unverified JWT Signature**.
@@ -164,7 +165,7 @@ router.get(
  * @swagger
  * /api/v1/profile/jwt/flawed-signature-verification:
  *   get:
- *     tags: [Profile]
+ *     tags: [V1 - Profile (Vulnerable)]
  *     summary: Get profile via JWT with flawed signature verification (vulnerable to algorithm "none" attack)
  *     description: |
  *       Protected endpoint vulnerable to **JWT Authentication Bypass via Algorithm Confusion** ("none" attack).
@@ -245,7 +246,7 @@ router.get(
  * @swagger
  * /api/v1/profile/jwt/weak-signing-key:
  *   get:
- *     tags: [Profile]
+ *     tags: [V1 - Profile (Vulnerable)]
  *     summary: Get profile via JWT signed with a weak key (vulnerable to brute-forcing)
  *     description: |
  *       Protected endpoint vulnerable to **JWT Authentication Bypass via Weak Signing Key**.
@@ -278,7 +279,7 @@ router.get(
  * @swagger
  * /api/v1/profile/jwt/jwk-header-injection:
  *   get:
- *     tags: [Profile]
+ *     tags: [V1 - Profile (Vulnerable)]
  *     summary: Get profile via JWT with JWK Header Injection (vulnerable)
  *     description: |
  *       Protected endpoint vulnerable to **JWT Authentication Bypass via JWK Header Injection**.
@@ -330,6 +331,74 @@ router.get(
 router.get(
   "/jwt/jwk-header-injection",
   requireAuthJwtButJwkHeaderInjection,
+  profileController.getProfile,
+);
+
+/**
+ * @swagger
+ * /api/v1/profile/jwt/jku-header-injection:
+ *   get:
+ *     tags: [V1 - Profile (Vulnerable)]
+ *     summary: Get profile via JWT — vulnerable to JKU Header Injection
+ *     description: |
+ *       **VULNERABLE endpoint.** The server fetches the JWKS from the URL in the token's
+ *       own `jku` header field — without validating that the URL belongs to a trusted domain.
+ *
+ *       **Root cause:** `verifyAccessTokenViaJku()` in `utils/jwt.js`:
+ *       ```js
+ *       const jwksUrl = decodedHeader?.jku ?? `http://localhost:${port}/api/v1/.well-known/jwks.json`;
+ *       const jwk = await fetchJwkByKid(jwksUrl, decodedHeader?.kid);
+ *       ```
+ *       When `jku` is present the server blindly fetches it, selects the key by `kid`,
+ *       and verifies the signature — so an attacker-hosted JWKS is fully trusted.
+ *
+ *       **Attack flow:**
+ *       1. Attacker generates their own RSA key-pair
+ *       2. Hosts JWKS at `https://attacker.com/jwks.json` with `kid: "vullab-rs256-key-1"`
+ *       3. Crafts a forged RS256 token:
+ *          - Header: `{ "alg": "RS256", "kid": "vullab-rs256-key-1", "jku": "https://attacker.com/jwks.json" }`
+ *          - Payload: `{ "id": <victim_id>, "username": "administrator" }`
+ *          - Signed with attacker's private key
+ *       4. Sends token here → server follows `jku`, trusts attacker's key → **ATO**
+ *
+ *       **Secure fix (v2):** `GET /api/v2/profile/jwt/jwk-header-injection` uses
+ *       `requireAuthJwtWithRS256Alg` which always verifies against the server's own
+ *       public key — `jku` / `jwk` header fields are completely ignored.
+ *
+ *       **References:**
+ *       - https://portswigger.net/web-security/jwt/lab-jwt-authentication-bypass-via-jku-header-injection
+ *       - https://www.rfc-editor.org/rfc/rfc7515#section-4.1.2
+ *
+ *     security:
+ *       - bearerAuth: []
+ *     responses:
+ *       200:
+ *         description: |
+ *           User profile returned — attacker receives victim's profile if forged token is accepted.
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 success:
+ *                   type: boolean
+ *                   example: true
+ *                 message:
+ *                   type: string
+ *                   example: "Profile fetched successfully"
+ *                 data:
+ *                   type: object
+ *                   description: Profile of whoever's `id` was in the (possibly forged) token payload
+ *       401:
+ *         description: Unauthorized — missing or malformed token
+ *         content:
+ *           application/json:
+ *             schema:
+ *               $ref: '#/components/schemas/ErrorResponse'
+ */
+router.get(
+  "/jwt/jku-header-injection",
+  requireAuthJwtButJkuHeaderInjection,
   profileController.getProfile,
 );
 module.exports = router;

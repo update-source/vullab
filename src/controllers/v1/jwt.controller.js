@@ -56,6 +56,17 @@ const jwtController = {
       next(error);
     }
   },
+
+  async jwtAuthenticationBypassViaJkuHeaderInjection(req, res, next) {
+    try {
+      const user =
+        await jwtService.jwtAuthenticationBypassViaJkuHeaderInjection(req.body);
+      const token = generateAccessTokenWithRS256Alg(user);
+      return successResponse(res, token, "Login successfully");
+    } catch (error) {
+      next(error);
+    }
+  },
 };
 
 module.exports = jwtController;
