@@ -1,6 +1,9 @@
 const { jwtService } = require("../../services/v2");
 const { successResponse } = require("../../utils/response");
-const { generateAccessToken } = require("../../utils/jwt");
+const {
+  generateAccessToken,
+  generateAccessTokenWithRS256Alg,
+} = require("../../utils/jwt");
 const AppError = require("../../utils/AppError");
 
 const jwtController = {
@@ -17,7 +20,11 @@ const jwtController = {
     }
   },
 
-  async jwtSecureAuthenticationBypassViaFlawedSignatureVerification(req, res, next) {
+  async jwtSecureAuthenticationBypassViaFlawedSignatureVerification(
+    req,
+    res,
+    next,
+  ) {
     try {
       const user =
         await jwtService.jwtSecureAuthenticationBypassViaFlawedSignatureVerification(
@@ -37,6 +44,19 @@ const jwtController = {
           req.body,
         );
       const token = generateAccessToken(user);
+      return successResponse(res, token, "Login successfully");
+    } catch (error) {
+      next(error);
+    }
+  },
+
+  async jwtSecureAuthenticationBypassViaJwkHeaderInjection(req, res, next) {
+    try {
+      const user =
+        await jwtService.jwtSecureAuthenticationBypassViaJwkHeaderInjection(
+          req.body,
+        );
+      const token = generateAccessTokenWithRS256Alg(user);
       return successResponse(res, token, "Login successfully");
     } catch (error) {
       next(error);

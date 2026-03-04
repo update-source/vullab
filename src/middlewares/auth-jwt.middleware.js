@@ -2,8 +2,9 @@ const AppError = require("../utils/AppError");
 const { userService } = require("../services/v1");
 const {
   decodeToken,
-  verifyAccessToken,
+  verifyAccessTokenViaHS256Alg,
   verifyAccessTokenViaJwk,
+  verifyAccessTokenViaRS256Alg,
   verifyAccessTokenWithWeakSecret,
   verifyUnsignedAccessToken,
 } = require("../utils/jwt");
@@ -124,14 +125,14 @@ const requireAuthJwtButJwkHeaderInjection = async (req, res, next) => {
   return next(new AppError(401, "Unauthorized"));
 };
 
-const requireAuthJwt = (req, res, next) => {
+const requireAuthJwtWithHS256Alg = (req, res, next) => {
   const token = req.get("Authorization")?.split(" ")[1];
   if (!token) {
     return next(new AppError(401, "Unauthorized"));
   }
 
   try {
-    const payload = verifyAccessToken(token);
+    const payload = verifyAccessTokenViaHS256Alg(token);
     req.authUserId = payload?.id; // only use id
   } catch (error) {
     console.log(error.message);
@@ -140,8 +141,27 @@ const requireAuthJwt = (req, res, next) => {
 
   return next();
 };
+
+const requireAuthJwtWithRS256Alg = (req, res, next) => {
+  const token = req.get("Authorization")?.split(" ")[1];
+  if (!token) {
+    return next(new AppError(401, "Unauthorized"));
+  }
+
+  try {
+    const payload = verifyAccessTokenViaRS256Alg(token);
+    req.authUserId = payload?.id; // only use id
+  } catch (error) {
+    console.log(error.message);
+    return next(new AppError(401, "Unauthorized"));
+  }
+
+  return next();
+};
+
 module.exports = {
-  requireAuthJwt,
+  requireAuthJwtWithHS256Alg,
+  requireAuthJwtWithRS256Alg,
   requireAuthJwtButWeakSigningKey,
   requireAuthJwtButJwkHeaderInjection,
   requireAuthJwtButFlawedSignatureVerification,

@@ -10,11 +10,12 @@ const {
 } = require("./auth-validation.middleware");
 
 const {
-  requireAuthJwt,
   requireAuthJwtButFlawedSignatureVerification,
   requireAuthJwtButJwkHeaderInjection,
   requireAuthJwtButUnverifiedSignature,
   requireAuthJwtButWeakSigningKey,
+  requireAuthJwtWithHS256Alg,
+  requireAuthJwtWithRS256Alg,
 } = require("./auth-jwt.middleware");
 
 const {
@@ -33,10 +34,11 @@ module.exports = {
   otpRules,
   loginRules,
   errorHandler,
-  requireAuthJwt,
   registerRules,
   handleValidation,
   requireTrustedHost,
+  requireAuthJwtWithHS256Alg,
+  requireAuthJwtWithRS256Alg,
   requireAuthJwtButWeakSigningKey,
   requireAuthJwtButJwkHeaderInjection,
   requireAuthJwtButFlawedSignatureVerification,

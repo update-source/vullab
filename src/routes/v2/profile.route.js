@@ -2,7 +2,8 @@ const express = require("express");
 const router = express.Router();
 const { profileController } = require("../../controllers/v2");
 const {
-  requireAuthJwt,
+  requireAuthJwtWithHS256Alg,
+  requireAuthJwtWithRS256Alg,
   requireAuthSession,
   requireAuthSessionOrCookie,
   resolveCookieIdentity,
@@ -158,7 +159,7 @@ router.get(
  */
 router.get(
   "/jwt/unverified-signature",
-  requireAuthJwt,
+  requireAuthJwtWithHS256Alg,
   profileController.getProfile,
 );
 
@@ -219,7 +220,7 @@ router.get(
  */
 router.get(
   "/jwt/flawed-signature-verification",
-  requireAuthJwt,
+  requireAuthJwtWithHS256Alg,
   profileController.getProfile,
 );
 
@@ -277,7 +278,75 @@ router.get(
  */
 router.get(
   "/jwt/weak-signing-key",
-  requireAuthJwt,
+  requireAuthJwtWithHS256Alg,
+  profileController.getProfile,
+);
+
+/**
+ * @swagger
+ * /api/v2/profile/jwt/jwk-header-injection:
+ *   get:
+ *     tags: [V2 - Profile (Secure)]
+ *     summary: Get profile via RS256 JWT — JWK header injection blocked (secure)
+ *     description: |
+ *       **This is the SECURE version** of the JWK header injection profile endpoint.
+ *
+ *       **Security fix:** This route uses `requireAuthJwtWithRS256Alg` middleware, which verifies
+ *       the token signature **exclusively** against the server's own RS256 public key stored on disk.
+ *       The `jwk`, `jku`, and `x5u` header fields inside the token are completely ignored.
+ *
+ *       **Differences from vulnerable v1:**
+ *       - v1: Extracts the `jwk` field from the token's own header and uses it for verification,
+ *         allowing an attacker to embed their own public key and sign tokens with the matching private key.
+ *       - v2: Ignores any key material in the token header; verification always uses the
+ *         server's trusted public key — the attacker's embedded key has no effect.
+ *
+ *       **Why this prevents ATO via JWK Header Injection:**
+ *       1. Attacker generates their own RSA key-pair.
+ *       2. Attacker crafts a token, embeds their public key in the `jwk` header field,
+ *          and signs it with their private key.
+ *       3. On v2 the middleware ignores the `jwk` field and verifies against the server's public key.
+ *       4. Signature validation fails → **401 Unauthorized**.
+ *
+ *       **Test steps (should FAIL with injected key):**
+ *       1. Login at `POST /api/v2/jwt/jwk-header-injection/login` to get a valid RS256 token.
+ *       2. Generate your own RSA key-pair and embed the public key as `jwk` in the token header.
+ *       3. Change payload (e.g., set `id` to another user's ID) and sign with your private key.
+ *       4. Send the forged token to this endpoint → **401 Unauthorized**.
+ *
+ *     security:
+ *       - bearerAuth: []
+ *     responses:
+ *       200:
+ *         description: User profile fetched successfully (only if signed with server's RS256 private key)
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 success:
+ *                   type: boolean
+ *                   example: true
+ *                 message:
+ *                   type: string
+ *                   example: "Profile fetched successfully"
+ *                 data:
+ *                   type: object
+ *       401:
+ *         description: |
+ *           Unauthorized. Possible reasons:
+ *           - Missing Authorization header
+ *           - Token signed with an attacker-supplied key (JWK header injection attempt)
+ *           - Token signature invalid against server's public key
+ *           - Token has expired
+ *         content:
+ *           application/json:
+ *             schema:
+ *               $ref: '#/components/schemas/ErrorResponse'
+ */
+router.get(
+  "/jwt/jwk-header-injection",
+  requireAuthJwtWithRS256Alg,
   profileController.getProfile,
 );
 
