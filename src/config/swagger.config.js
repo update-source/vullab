@@ -151,6 +151,11 @@ const options = {
         name: "V2 - Profile (Secure)",
         description: "Secure profile endpoints with proper authentication",
       },
+      {
+        name: "V2 - Well-Known",
+        description:
+          "RFC 5785 well-known endpoints — exposes the server's RS256 public key as a JWKS for JWT verification labs",
+      },
     ],
   },
   apis: ["./src/routes/**/*.js"], // Path to the API routes

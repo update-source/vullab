@@ -286,4 +286,85 @@ router.post(
   handleValidation,
   jwtController.jwtSecureAuthenticationBypassViaJwkHeaderInjection,
 );
+
+/**
+ * @swagger
+ * /api/v2/jwt/jku-header-injection/login:
+ *   post:
+ *     tags: [V2 - JWT (Secure)]
+ *     summary: Secure JWT login (fixed JKU header injection)
+ *     description: |
+ *       **This is the SECURE version** of the JWT login endpoint for the JKU header injection lab.
+ *       It issues an RS256-signed JWT using the server's private key.
+ *       The protected route (`GET /api/v2/profile/jwt/jku-header-injection`) verifies the token
+ *       **exclusively using the server's own trusted public key (loaded from disk)**, completely
+ *       ignoring any `jku` field embedded inside the token header.
+ *
+ *       **Differences from vulnerable v1:**
+ *       - v1 fetches the JWKS URL from the `jku` header field inside the token, allowing an attacker
+ *         to host their own JWKS endpoint and inject their public key.
+ *       - v2 ignores the `jku` header field entirely and always uses the server's own trusted public
+ *         key stored on disk — no external URL is ever fetched during verification.
+ *
+ *       **Security properties:**
+ *       - Rejects tokens whose signature cannot be verified with the server's RS256 public key
+ *       - Attacker-supplied `jku` URLs in the token header are completely ignored
+ *       - Prevents Server-Side Request Forgery (SSRF) via `jku` header
+ *       - Prevents Account Takeover (ATO) via JKU header injection
+ *
+ *       **Token payload structure:**
+ *       ```json
+ *       { "id": 1, "username": "carlos", "role": "user", "iat": 1700000000, "exp": 1700003600 }
+ *       ```
+ *
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         application/json:
+ *           schema:
+ *             $ref: '#/components/schemas/LoginRequest'
+ *           examples:
+ *             valid_credentials:
+ *               summary: Login with valid credentials
+ *               value:
+ *                 username: "carlos"
+ *                 password: "SecurePass123!"
+ *     responses:
+ *       200:
+ *         description: Login successful — returns an RS256-signed JWT
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 success:
+ *                   type: boolean
+ *                   example: true
+ *                 message:
+ *                   type: string
+ *                   example: "Login successfully"
+ *                 data:
+ *                   type: string
+ *                   description: RS256-signed JWT — jku injection attack will fail on the protected route
+ *                   example: "eyJhbGciOiJSUzI1NiIsInR5cCI6IkpXVCJ9.eyJpZCI6MSwidXNlcm5hbWUiOiJjYXJsb3MifQ.signature"
+ *       400:
+ *         description: Validation error (missing or invalid fields)
+ *         content:
+ *           application/json:
+ *             schema:
+ *               $ref: '#/components/schemas/ErrorResponse'
+ *       401:
+ *         description: Invalid username or password
+ *         content:
+ *           application/json:
+ *             schema:
+ *               $ref: '#/components/schemas/ErrorResponse'
+ */
+router.post(
+  "/jku-header-injection/login",
+  loginRules,
+  handleValidation,
+  jwtController.jwtSecureAuthenticationBypassViaJkuHeaderInjection,
+);
+
 module.exports = router;

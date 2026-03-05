@@ -349,5 +349,82 @@ router.get(
   requireAuthJwtWithRS256Alg,
   profileController.getProfile,
 );
-
+//
+/**
+ * @swagger
+ * /api/v2/profile/jwt/jku-header-injection:
+ *   get:
+ *     tags: [V2 - Profile (Secure)]
+ *     summary: Get profile via RS256 JWT — JKU header injection blocked (secure)
+ *     description: |
+ *       **This is the SECURE version** of the JKU header injection profile endpoint.
+ *
+ *       **Security fix:** This route uses `requireAuthJwtWithRS256Alg` middleware, which verifies
+ *       the token signature **exclusively** against the server's own RS256 public key loaded from
+ *       disk. The `jku` field inside the token header is completely ignored — no external URL
+ *       is ever fetched during verification, eliminating both the JKU injection attack and
+ *       any associated SSRF risk.
+ *
+ *       **Differences from vulnerable v1:**
+ *       - v1: Reads the `jku` (JWK Set URL) field from the token header and fetches the
+ *         JWKS from that URL to obtain the public key for verification, allowing an attacker
+ *         to host their own JWKS endpoint and forge trusted tokens.
+ *       - v2: Ignores any `jku` field in the token header; verification always uses the
+ *         server's trusted public key from disk — attacker-supplied URLs have no effect.
+ *
+ *       **Why this prevents ATO via JKU Header Injection:**
+ *       1. Attacker generates their own RSA key-pair.
+ *       2. Attacker hosts a JWKS endpoint containing their public key.
+ *       3. Attacker crafts a token, sets `jku` to their JWKS URL, and signs with their private key.
+ *       4. On v2 the middleware ignores the `jku` field and verifies against the server's public key.
+ *       5. Signature validation fails → **401 Unauthorized**.
+ *
+ *       **Why this also prevents SSRF:**
+ *       - The server never makes outbound HTTP requests based on `jku` header values.
+ *       - Internal URLs (e.g., `http://locahost/...`) in `jku` will never be fetched.
+ *
+ *       **Test steps (should FAIL with injected key):**
+ *       1. Login at `POST /api/v2/jwt/jku-header-injection/login` to get a valid RS256 token.
+ *       2. Host your own JWKS at an external URL with your public key.
+ *       3. Change `jku` in the token header to your JWKS URL, modify the payload, and sign with your private key.
+ *       4. Send the forged token to this endpoint → **401 Unauthorized**.
+ *
+ *     security:
+ *       - bearerAuth: []
+ *     responses:
+ *       200:
+ *         description: User profile fetched successfully (only if signed with server's RS256 private key)
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 success:
+ *                   type: boolean
+ *                   example: true
+ *                 message:
+ *                   type: string
+ *                   example: "Profile fetched successfully"
+ *                 data:
+ *                   type: object
+ *       401:
+ *         description: |
+ *           Unauthorized. Possible reasons:
+ *           - Missing Authorization header
+ *           - Token signed with an attacker-supplied key (JKU header injection attempt)
+ *           - Token signature invalid against server's public key
+ *           - Token has expired
+ *         content:
+ *           application/json:
+ *             schema:
+ *               $ref: '#/components/schemas/ErrorResponse'
+ */
+router.get(
+  "/jwt/jku-header-injection",
+  //I will directly use the public key in the source code
+  //instead of calling the api,
+  //because it can lead to ssrf if not handled carefully.
+  requireAuthJwtWithRS256Alg,
+  profileController.getProfile,
+);
 module.exports = router;
