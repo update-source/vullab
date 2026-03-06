@@ -381,4 +381,91 @@ router.post(
   handleValidation,
   jwtController.jwtAuthenticationBypassViaJkuHeaderInjection,
 );
+
+/**
+ * @swagger
+ * /api/v1/jwt/kid-header-injection/login:
+ *   post:
+ *     tags: [V1 - JWT (Vulnerable)]
+ *     summary: Login and get JWT token (KID Header Injection)
+ *     description: |
+ *       Login endpoint for the **JWT Authentication Bypass via KID Header Path Traversal** lab.
+ *
+ *       **This endpoint itself has no vulnerability** — it correctly signs the token using the
+ *       server's HS256 secret, and embeds the `kid` (Key ID) field in the JWT header pointing
+ *       to the server's own key file path.
+ *
+ *       The vulnerability exists in the protected route that consumes this token:
+ *       **`GET /api/v1/profile/jwt/kid-header-injection`**
+ *
+ *       **Root cause:** The protected route calls `verifyAccessTokenViaKid()`, which reads the
+ *       signing key by calling `fs.readFileSync(path.join(__dirname, decodedHeader.kid))`.
+ *       Because `kid` is controlled by the attacker and is never sanitised, this enables a
+ *       **path traversal** — the attacker can point `kid` to any readable file on the server
+ *       (e.g., `/dev/null`) to choose the HMAC secret.
+ *
+ *       **How to exploit (Account Takeover via KID Path Traversal):**
+ *       1. Login here with valid credentials to obtain a legitimate JWT and observe the `kid` field
+ *       2. Craft a forged HS256 token:
+ *          - Header: `{ "alg": "HS256", "kid": "../../../../../../dev/null" }`
+ *          - Payload: `{ "username": "administrator" }` (or any victim's username)
+ *          - Sign the token using an **empty string** `""` as the HMAC secret
+ *            (because `/dev/null` is an empty file → the key material is `""`)
+ *       3. Send `Authorization: Bearer <forged_token>` to
+ *          `GET /api/v1/profile/jwt/kid-header-injection`
+ *       4. Server traverses to `/dev/null`, reads `""`, verifies HMAC successfully → **ATO**
+ *
+ *       **References:**
+ *       - https://portswigger.net/web-security/jwt/lab-jwt-authentication-bypass-via-kid-header-path-traversal
+ *       - https://www.rfc-editor.org/rfc/rfc7515#section-4.1.4
+ *
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         application/json:
+ *           schema:
+ *             $ref: '#/components/schemas/LoginRequest'
+ *           examples:
+ *             valid_credentials:
+ *               summary: Login with valid credentials
+ *               value:
+ *                 username: "carlos"
+ *                 password: "SecurePass123!"
+ *     responses:
+ *       200:
+ *         description: Login successful — returns a signed JWT with a `kid` field in the header
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 success:
+ *                   type: boolean
+ *                   example: true
+ *                 message:
+ *                   type: string
+ *                   example: "Login successfully"
+ *                 data:
+ *                   type: string
+ *                   description: HS256-signed JWT — decode the header to observe the `kid` field
+ *                   example: "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCIsImtpZCI6ImtleXMvaG1hYy5rZXkifQ.eyJpZCI6MSwidXNlcm5hbWUiOiJjYXJsb3MifQ.signature"
+ *       400:
+ *         description: Validation error (missing or invalid fields)
+ *         content:
+ *           application/json:
+ *             schema:
+ *               $ref: '#/components/schemas/ErrorResponse'
+ *       401:
+ *         description: Invalid username or password
+ *         content:
+ *           application/json:
+ *             schema:
+ *               $ref: '#/components/schemas/ErrorResponse'
+ */
+router.post(
+  "/kid-header-injection/login",
+  loginRules,
+  handleValidation,
+  jwtController.jwtAuthenticationBypassViaKidHeaderInjection,
+);
 module.exports = router;

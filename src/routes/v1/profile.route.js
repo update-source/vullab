@@ -5,6 +5,7 @@ const {
   requireAuthJwtButFlawedSignatureVerification,
   requireAuthJwtButJkuHeaderInjection,
   requireAuthJwtButJwkHeaderInjection,
+  requireAuthJwtButKidHeaderInjection,
   requireAuthJwtButUnverifiedSignature,
   requireAuthJwtButWeakSigningKey,
   requireAuthSession,
@@ -399,6 +400,77 @@ router.get(
 router.get(
   "/jwt/jku-header-injection",
   requireAuthJwtButJkuHeaderInjection,
+  profileController.getProfile,
+);
+
+/**
+ * @swagger
+ * /api/v1/profile/jwt/kid-header-injection:
+ *   get:
+ *     tags: [V1 - Profile (Vulnerable)]
+ *     summary: Get profile via JWT — vulnerable to KID Header Path Traversal
+ *     description: |
+ *       **VULNERABLE endpoint.** The server reads the HMAC signing key from a file path
+ *       specified by the `kid` field in the token's own header — without sanitising or
+ *       restricting the path.
+ *
+ *       **Root cause:** `verifyAccessTokenViaKid()` in `utils/jwt.js`:
+ *       ```js
+ *       const pem = fs.readFileSync(
+ *         path.join(__dirname, decodedHeader.kid), // path traversal
+ *         { encoding: 'utf-8' }
+ *       );
+ *       return jwt.verify(token, pem, { algorithms: ["HS256"] });
+ *       ```
+ *       Because `decodedHeader.kid` is attacker-controlled and never validated,
+ *       the attacker can traverse to any readable file on the server to choose
+ *       the HMAC secret — including predictable empty files like `/dev/null`.
+ *
+ *       **Attack flow:**
+ *       1. Login at `POST /api/v1/jwt/kid-header-injection/login` to get a real JWT
+ *       2. Craft a forged HS256 token:
+ *          - Header: `{ "alg": "HS256", "kid": "../../../../../../dev/null" }`
+ *          - Payload: `{ "username": "administrator" }` (victim's username)
+ *          - Sign with HMAC secret = **empty string** `""` (content of `/dev/null`)
+ *       3. Send `Authorization: Bearer <forged_token>` to this endpoint
+ *       4. Server resolves path → reads `/dev/null` → gets `""` → HMAC verifies → **ATO**
+ *
+ *       **Secure fix (v2):** The v2 equivalent ignores the `kid` header and always
+ *       verifies against the server's own stored key — no filesystem access involved.
+ *
+ *       **References:**
+ *       - https://portswigger.net/web-security/jwt/lab-jwt-authentication-bypass-via-kid-header-path-traversal
+ *       - https://www.rfc-editor.org/rfc/rfc7515#section-4.1.4
+ *
+ *     security:
+ *       - bearerAuth: []
+ *     responses:
+ *       200:
+ *         description: User profile fetched successfully (including forged tokens via path traversal)
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 success:
+ *                   type: boolean
+ *                   example: true
+ *                 message:
+ *                   type: string
+ *                   example: "Profile fetched successfully"
+ *                 data:
+ *                   type: object
+ *                   description: Profile of whoever's `username` was in the (possibly forged) token payload
+ *       401:
+ *         description: Unauthorized — missing, malformed, or unverifiable token
+ *         content:
+ *           application/json:
+ *             schema:
+ *               $ref: '#/components/schemas/ErrorResponse'
+ */
+router.get(
+  "/jwt/kid-header-injection",
+  requireAuthJwtButKidHeaderInjection,
   profileController.getProfile,
 );
 module.exports = router;

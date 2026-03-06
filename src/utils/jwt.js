@@ -10,6 +10,8 @@ const {
 
 const crypto = require("crypto");
 const jwt = require("jsonwebtoken");
+const fs = require("fs");
+const path = require("path");
 const jwkToPem = require("jwk-to-pem");
 
 const generateAccessToken = (payload) => {
@@ -89,24 +91,62 @@ const verifyAccessTokenViaJwk = (token) => {
 };
 
 const fetchJwkByKid = async (url, kid) => {
-  const { keys } = await (await fetch(url)).json();
-  return keys.find((k) => k.kid === kid);
+  const response = await fetch(url);
+  if (!response.ok) {
+    throw new Error(`Fail to fetch ${url}`);
+  }
+  const data = await response.json();
+  if (!data || !Array.isArray(data.keys)) {
+    throw new Error("Invalid jwks format");
+  }
+  return data.keys.find((k) => k.kid === kid);
 };
 
 const verifyAccessTokenViaJku = async (token) => {
-  //To fit the scenario, instead of using JWT_PUBLIC_KEY directly, we will call api to get jwks
-  const decodedHeader = jwt.decode(token, { complete: true })?.header;
-  const port = process.env.PORT || 3500;
-  const jwksUrl =
-    decodedHeader?.jku ??
-    `http://localhost:${port}/api/v1/.well-known/jwks.json`;
+  try {
+    //To fit the scenario, instead of using JWT_PUBLIC_KEY directly, we will call api to get jwks
+    const decodedHeader = jwt.decode(token, { complete: true })?.header;
+    const port = process.env.PORT || 3500;
+    const jwksUrl =
+      decodedHeader?.jku ??
+      `http://localhost:${port}/api/v1/.well-known/jwks.json`;
 
-  const jwk = await fetchJwkByKid(jwksUrl, decodedHeader?.kid);
-  const pem = jwkToPem(jwk);
-  return jwt.verify(token, pem, {
+    const jwk = await fetchJwkByKid(jwksUrl, decodedHeader?.kid);
+    if (!jwt) {
+      return null;
+    }
+    const pem = jwkToPem(jwk);
+    return jwt.verify(token, pem, {
+      issuer: accessTokenOptions.issuer,
+      audience: accessTokenOptions.audience,
+      algorithms: ["RS256"],
+    });
+  } catch (error) {
+    return null;
+  }
+};
+
+const verifyAccessTokenViaKid = (token) => {
+  const decodedHeader = jwt.decode(token, { complete: true })?.header;
+  if (decodedHeader?.kid) {
+    try {
+      const pem = fs.readFileSync(path.join(__dirname, decodedHeader.kid), {
+        // path traversal
+        encoding: "utf-8",
+      });
+      return jwt.verify(token, pem, {
+        issuer: accessTokenOptions.issuer,
+        audience: accessTokenOptions.audience,
+        algorithms: [accessTokenOptions.algorithm],
+      });
+    } catch (error) {
+      return;
+    }
+  }
+  return jwt.verify(token, JWT_SECRET, {
     issuer: accessTokenOptions.issuer,
     audience: accessTokenOptions.audience,
-    algorithms: ["RS256"],
+    algorithms: [accessTokenOptions.algorithm],
   });
 };
 
@@ -123,6 +163,7 @@ module.exports = {
   verifyAccessTokenViaHS256Alg,
   verifyAccessTokenViaJku,
   verifyRefreshToken,
+  verifyAccessTokenViaKid,
   verifyAccessTokenViaJwk,
   verifyUnsignedAccessToken,
   verifyAccessTokenViaRS256Alg,
