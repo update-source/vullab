@@ -14,6 +14,25 @@ const fs = require("fs");
 const path = require("path");
 const jwkToPem = require("jwk-to-pem");
 
+/*
+Note:
+In all v2 jwt patches I used env variables (hardcoded public key / secret).
+This is very safe but does not reflect enough for real-world cases.
+For example, in microservices or multi-tenant systems with multiple issuers
+(e.g., Google, Auth0), a single hardcoded key cannot cover all scenarios —
+the proper approach is dynamic JWKS resolution combined with an allowlist
+of trusted domains/URLs within the same service, not separate deployments.
+
+For the JKU injection fix specifically, the standard mitigation is to maintain
+a trusted URL allowlist and only fetch JWKS from those pre-approved origins.
+This is technically feasible even in a local environment.
+
+However, what is genuinely difficult to demonstrate locally is the *attacker side*:
+hosting an external JWKS server requires an externally reachable network,
+which is not available in a purely local setup. That is the actual limitation
+of this project for demonstrating the full JKU injection attack chain.
+*/
+
 const generateAccessToken = (payload) => {
   return jwt.sign(payload, JWT_SECRET, accessTokenOptions);
 };
@@ -32,65 +51,96 @@ const generateRefreshToken = (payload) => {
 };
 
 const verifyAccessTokenViaHS256Alg = (token) => {
-  return jwt.verify(token, JWT_SECRET, {
-    issuer: accessTokenOptions.issuer,
-    audience: accessTokenOptions.audience,
-    algorithms: [accessTokenOptions.algorithm],
-  });
+  try {
+    return jwt.verify(token, JWT_SECRET, {
+      issuer: accessTokenOptions.issuer,
+      audience: accessTokenOptions.audience,
+      algorithms: [accessTokenOptions.algorithm],
+    });
+  } catch (error) {
+    return null;
+  }
 };
 //https://curity.io/resources/learn/jwt-best-practices/
 const verifyAccessTokenViaRS256Alg = (token) => {
-  return jwt.verify(token, JWT_PUBLIC_KEY, {
-    issuer: accessTokenOptions.issuer,
-    audience: accessTokenOptions.audience,
-    algorithms: ["RS256"],
-    keyid: accessTokenOptions.keyid,
-  });
-};
-
-const verifyRefreshToken = (token) => {
-  return jwt.verify(token, JWT_SECRET, {
-    issuer: refreshTokenOptions.issuer,
-    audience: refreshTokenOptions.audience,
-    algorithms: [refreshTokenOptions.algorithm],
-  });
-};
-
-const verifyUnsignedAccessToken = (token) => {
-  const decodedHeader = jwt.decode(token, { complete: true })?.header;
-  const secret = decodedHeader?.alg === "none" ? undefined : JWT_SECRET;
-  return jwt.verify(token, secret, {
-    issuer: refreshTokenOptions.issuer,
-    audience: refreshTokenOptions.audience,
-    algorithms: [refreshTokenOptions.algorithm, "none"],
-  });
-};
-const verifyAccessTokenWithWeakSecret = (token) => {
-  return jwt.verify(token, WEAK_JWT_SECRET, {
-    issuer: accessTokenOptions.issuer,
-    audience: accessTokenOptions.audience,
-    algorithms: [accessTokenOptions.algorithm],
-  });
-};
-
-const verifyAccessTokenViaJwk = (token) => {
-  const decodedHeader = jwt.decode(token, { complete: true })?.header;
-  if (decodedHeader?.jwk) {
-    const pem = jwkToPem(decodedHeader.jwk);
-    return jwt.verify(token, pem, {
+  try {
+    return jwt.verify(token, JWT_PUBLIC_KEY, {
       issuer: accessTokenOptions.issuer,
       audience: accessTokenOptions.audience,
       algorithms: ["RS256"],
       keyid: accessTokenOptions.keyid,
     });
+  } catch (error) {
+    return null;
   }
-  // If user does not send jwk, the public key will be used
-  return jwt.verify(token, JWT_PUBLIC_KEY, {
-    issuer: accessTokenOptions.issuer,
-    audience: accessTokenOptions.audience,
-    algorithms: ["RS256"],
-    keyid: accessTokenOptions.keyid,
-  });
+};
+
+const verifyRefreshToken = (token) => {
+  try {
+    return jwt.verify(token, JWT_SECRET, {
+      issuer: refreshTokenOptions.issuer,
+      audience: refreshTokenOptions.audience,
+      algorithms: [refreshTokenOptions.algorithm],
+    });
+  } catch (error) {
+    return null;
+  }
+};
+
+const verifyUnsignedAccessToken = (token) => {
+  try {
+    const decodedHeader = jwt.decode(token, { complete: true })?.header;
+    /*
+    The reason I wrote secret set to undefined 
+    is because when secret is set and alg is none, 
+    jsonwebtoken will thow an error, 
+    so in order for the vulnerability to succeed, 
+    you must intentionally set the secret to undefined.
+    */
+    const secret = decodedHeader?.alg === "none" ? undefined : JWT_SECRET;
+    return jwt.verify(token, secret, {
+      issuer: refreshTokenOptions.issuer,
+      audience: refreshTokenOptions.audience,
+      algorithms: [refreshTokenOptions.algorithm, "none"],
+    });
+  } catch (error) {
+    return null;
+  }
+};
+const verifyAccessTokenWithWeakSecret = (token) => {
+  try {
+    return jwt.verify(token, WEAK_JWT_SECRET, {
+      issuer: accessTokenOptions.issuer,
+      audience: accessTokenOptions.audience,
+      algorithms: [accessTokenOptions.algorithm],
+    });
+  } catch (error) {
+    return null;
+  }
+};
+
+const verifyAccessTokenViaJwk = (token) => {
+  try {
+    const decodedHeader = jwt.decode(token, { complete: true })?.header;
+    if (decodedHeader?.jwk) {
+      const pem = jwkToPem(decodedHeader.jwk);
+      return jwt.verify(token, pem, {
+        issuer: accessTokenOptions.issuer,
+        audience: accessTokenOptions.audience,
+        algorithms: ["RS256"],
+        keyid: accessTokenOptions.keyid,
+      });
+    }
+    // If user does not send jwk, the public key will be used
+    return jwt.verify(token, JWT_PUBLIC_KEY, {
+      issuer: accessTokenOptions.issuer,
+      audience: accessTokenOptions.audience,
+      algorithms: ["RS256"],
+      keyid: accessTokenOptions.keyid,
+    });
+  } catch (error) {
+    return null;
+  }
 };
 
 const fetchJwkByKid = async (url, kid) => {
@@ -102,7 +152,7 @@ const fetchJwkByKid = async (url, kid) => {
   if (!data || !Array.isArray(data.keys)) {
     throw new Error("Invalid jwks format");
   }
-  return data.keys.find((k) => k.kid === kid);
+  return data.keys.find((key) => key.kid === kid);
 };
 
 const verifyAccessTokenViaJku = async (token) => {
@@ -114,8 +164,11 @@ const verifyAccessTokenViaJku = async (token) => {
       decodedHeader?.jku ??
       `http://localhost:${port}/api/v1/.well-known/jwks.json`;
 
-    const jwk = await fetchJwkByKid(jwksUrl, decodedHeader?.kid);
-    if (!jwt) {
+    if (!decodedHeader.kid) {
+      throw new Error("Require kid field in header to fetch Jwks");
+    }
+    const jwk = await fetchJwkByKid(jwksUrl, decodedHeader.kid);
+    if (!jwk) {
       return null;
     }
     const pem = jwkToPem(jwk);
@@ -131,27 +184,88 @@ const verifyAccessTokenViaJku = async (token) => {
 };
 
 const verifyAccessTokenViaKid = (token) => {
-  const decodedHeader = jwt.decode(token, { complete: true })?.header;
-  if (decodedHeader?.kid) {
-    try {
-      const pem = fs.readFileSync(path.join(__dirname, decodedHeader.kid), {
-        // path traversal
-        encoding: "utf-8",
-      });
+  try {
+    const decodedHeader = jwt.decode(token, { complete: true })?.header;
+    if (decodedHeader?.kid) {
+      try {
+        const pem = fs.readFileSync(path.join(__dirname, decodedHeader.kid), {
+          // path traversal
+          encoding: "utf-8",
+        });
+        return jwt.verify(token, pem, {
+          issuer: accessTokenOptions.issuer,
+          audience: accessTokenOptions.audience,
+          algorithms: [accessTokenOptions.algorithm],
+        });
+      } catch (error) {
+        return null;
+      }
+    }
+    return jwt.verify(token, JWT_SECRET, {
+      issuer: accessTokenOptions.issuer,
+      audience: accessTokenOptions.audience,
+      algorithms: [accessTokenOptions.algorithm],
+    });
+  } catch (error) {
+    return null;
+  }
+};
+
+const verifyAccessTokenViaAlg = async (token) => {
+  try {
+    const decodedHeader = jwt.decode(token, { complete: true })?.header;
+    /*
+    Bc i using jsonwebtoken in version >= 9, 
+    they have added a protection mechanism that 
+    you cannot use public key to verify jwt for alg which is HS256
+    */
+    if (decodedHeader?.alg === "RS256" || decodedHeader?.alg === "HS256") {
+      if (!decodedHeader.kid) return null;
+      const port = process.env.PORT || 3500;
+      const jwksUrl = `http://localhost:${port}/api/v1/.well-known/jwks.json`;
+      const jwk = await fetchJwkByKid(jwksUrl, decodedHeader.kid);
+      if (!jwk) {
+        return null;
+      }
+      const pem = jwkToPem(jwk);
+      // Custom
+      if (decodedHeader.alg === "HS256") {
+        const [header, payload, signature] = token.split(".");
+        const dataToSign = `${header}.${payload}`;
+
+        /*
+        Extract raw DER bytes from PEM (strip header/footer, base64-decode).
+        This matches how Burp Suite JWT Editor and jwt.io treat the key when
+        performing algorithm confusion — they use the raw public key bytes,
+        NOT the full PEM string (which includes "-----BEGIN PUBLIC KEY-----",
+        newlines, and "-----END PUBLIC KEY-----").
+        */
+        const pemContent = pem
+          .replace("-----BEGIN PUBLIC KEY-----", "")
+          .replace("-----END PUBLIC KEY-----", "")
+          .replace(/\n/g, "");
+        const keyBytes = Buffer.from(pemContent, "base64");
+
+        const expectedSignature = crypto
+          .createHmac("sha256", keyBytes)
+          .update(dataToSign)
+          .digest("base64url");
+
+        if (signature === expectedSignature) {
+          return jwt.decode(token);
+        }
+        return null;
+      }
       return jwt.verify(token, pem, {
         issuer: accessTokenOptions.issuer,
         audience: accessTokenOptions.audience,
-        algorithms: [accessTokenOptions.algorithm],
+        algorithms: ["RS256"],
+        keyid: accessTokenOptions.keyid,
       });
-    } catch (error) {
-      return;
     }
+  } catch (error) {
+    return null;
   }
-  return jwt.verify(token, JWT_SECRET, {
-    issuer: accessTokenOptions.issuer,
-    audience: accessTokenOptions.audience,
-    algorithms: [accessTokenOptions.algorithm],
-  });
 };
 
 const generateJwkFromPem = (pem) => {
@@ -159,7 +273,7 @@ const generateJwkFromPem = (pem) => {
 };
 
 const decodeToken = (token) => {
-  return jwt.decode(token);
+  return jwt.decode(token); // jwt.decode never throws, returns null on invalid input
 };
 
 module.exports = {
@@ -171,6 +285,7 @@ module.exports = {
   verifyAccessTokenViaJwk,
   verifyUnsignedAccessToken,
   verifyAccessTokenViaRS256Alg,
+  verifyAccessTokenViaAlg,
   verifyAccessTokenWithWeakSecret,
   generateJwkFromPem,
   generateAccessToken,

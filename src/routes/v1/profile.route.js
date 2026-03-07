@@ -2,6 +2,7 @@ const express = require("express");
 const router = express.Router();
 const { profileController } = require("../../controllers/v1");
 const {
+  requireAuthJwtButAlgorithmConfusion,
   requireAuthJwtButFlawedSignatureVerification,
   requireAuthJwtButJkuHeaderInjection,
   requireAuthJwtButJwkHeaderInjection,
@@ -473,4 +474,89 @@ router.get(
   requireAuthJwtButKidHeaderInjection,
   profileController.getProfile,
 );
+
+/**
+ * @swagger
+ * /api/v1/profile/jwt/algorithm-confusion:
+ *   get:
+ *     tags: [V1 - Profile (Vulnerable)]
+ *     summary: Get profile via JWT — vulnerable to Algorithm Confusion (RS256 → HS256)
+ *     description: |
+ *       **VULNERABLE endpoint.** The server inspects the `alg` field in the token header
+ *       and switches verification logic based on it — without enforcing the expected algorithm.
+ *
+ *       **Root cause:** `verifyAccessTokenViaAlg()` in `utils/jwt.js` branches on `decodedHeader.alg`:
+ *       ```js
+ *       if (decodedHeader?.alg === "RS256") {
+ *         // verify with RS256 public key via JWKS
+ *       } else if (decodedHeader?.alg === "HS256") {
+ *         // no verification — returns undefined
+ *       }
+ *       ```
+ *       The server trusts the algorithm declared by the **attacker** in the token header.
+ *       By switching `alg` from `RS256` to `HS256` and signing with the server's known
+ *       RSA public key as the HMAC secret, an attacker can forge a valid-looking token.
+ *
+ *       **How the server verifies HS256 tokens (the vulnerable path):**
+ *       ```js
+ *       // Strip PEM headers → base64-decode → get raw DER bytes
+ *       const pemContent = pem.replace("-----BEGIN PUBLIC KEY-----", "")
+ *                             .replace("-----END PUBLIC KEY-----", "")
+ *                             .replace(/\n/g, "");
+ *       const keyBytes = Buffer.from(pemContent, "base64");
+ *       // Use those bytes as HMAC-SHA256 key — same as Burp JWT Editor / jwt.io
+ *       const expected = crypto.createHmac("sha256", keyBytes)
+ *                              .update(`${header}.${payload}`)
+ *                              .digest("base64url");
+ *       ```
+ *
+ *       **Attack flow (Account Takeover):**
+ *       1. Login at `POST /api/v1/jwt/algorithm-confusion/login` to get an RS256-signed JWT
+ *       2. Fetch the public key from `GET /api/v1/.well-known/jwks.json`
+ *       3. Convert JWK → PEM, then extract raw DER bytes (strip header/footer, base64-decode)
+ *       4. Craft a forged HS256 token:
+ *          - Header: `{ "alg": "HS256", "typ": "JWT", "kid": "vullab-rs256-key-1" }`
+ *          - Payload: `{ "username": "carlos" }` (any existing user)
+ *          - Sign with raw DER bytes as HMAC-SHA256 secret
+ *       5. Send `Authorization: Bearer <forged_token>` → server accepts → **ATO**
+ *
+ *       **Compatible tools:** Burp Suite JWT Editor, jwt.io (paste base64 PEM content,
+ *       tick "secret base64 encoded")
+ *
+ *       **References:**
+ *       - https://portswigger.net/web-security/jwt/algorithm-confusion
+ *       - https://www.rfc-editor.org/rfc/rfc7515#section-4.1.1
+ *
+ *     security:
+ *       - bearerAuth: []
+ *     responses:
+ *       200:
+ *         description: User profile fetched successfully (includes forged tokens via algorithm confusion)
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 success:
+ *                   type: boolean
+ *                   example: true
+ *                 message:
+ *                   type: string
+ *                   example: "Profile fetched successfully"
+ *                 data:
+ *                   type: object
+ *                   description: Profile of whoever's `username` was in the (possibly forged) token payload
+ *       401:
+ *         description: Unauthorized — missing or malformed token
+ *         content:
+ *           application/json:
+ *             schema:
+ *               $ref: '#/components/schemas/ErrorResponse'
+ */
+router.get(
+  "/jwt/algorithm-confusion",
+  requireAuthJwtButAlgorithmConfusion,
+  profileController.getProfile,
+);
+
 module.exports = router;

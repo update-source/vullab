@@ -2,6 +2,7 @@ const AppError = require("../utils/AppError");
 const { userService } = require("../services/v1");
 const {
   decodeToken,
+  verifyAccessTokenViaAlg,
   verifyAccessTokenViaHS256Alg,
   verifyAccessTokenViaJku,
   verifyAccessTokenViaJwk,
@@ -185,6 +186,35 @@ const requireAuthJwtButKidHeaderInjection = async (req, res, next) => {
   return next(new AppError(401, "Unauthorized"));
 };
 
+const requireAuthJwtButAlgorithmConfusion = async (req, res, next) => {
+  const token = req.get("Authorization")?.split(" ")[1];
+  if (!token) {
+    return next(new AppError(401, "Unauthorized"));
+  }
+
+  const payload = await verifyAccessTokenViaAlg(token);
+
+  if (payload?.username) {
+    //Use the same username field as portswigger lab
+    try {
+      const user = await userService.getUserByUsername(payload.username);
+      if (!user) {
+        return next(new AppError(401, "Unauthorized"));
+      }
+      req.authUserId = user.id;
+      return next();
+    } catch {
+      return next(new AppError(401, "Unauthorized"));
+    }
+  }
+
+  if (payload?.id) {
+    req.authUserId = payload.id;
+    return next();
+  }
+  return next(new AppError(401, "Unauthorized"));
+};
+
 const requireAuthJwtWithHS256Alg = (req, res, next) => {
   const token = req.get("Authorization")?.split(" ")[1];
   if (!token) {
@@ -226,6 +256,7 @@ module.exports = {
   requireAuthJwtButKidHeaderInjection,
   requireAuthJwtButJkuHeaderInjection,
   requireAuthJwtButJwkHeaderInjection,
+  requireAuthJwtButAlgorithmConfusion,
   requireAuthJwtButFlawedSignatureVerification,
   requireAuthJwtButUnverifiedSignature,
 };

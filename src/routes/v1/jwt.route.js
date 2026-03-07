@@ -468,4 +468,91 @@ router.post(
   handleValidation,
   jwtController.jwtAuthenticationBypassViaKidHeaderInjection,
 );
+
+/**
+ * @swagger
+ * /api/v1/jwt/algorithm-confusion/login:
+ *   post:
+ *     tags: [V1 - JWT (Vulnerable)]
+ *     summary: Login and get JWT token (Algorithm Confusion)
+ *     description: |
+ *       Login endpoint for the **JWT Authentication Bypass via Algorithm Confusion** lab.
+ *
+ *       **This endpoint itself is not vulnerable** — it correctly signs tokens using RS256
+ *       with the server's RSA private key.
+ *
+ *       The vulnerability exists in the protected route that consumes this token:
+ *       **`GET /api/v1/profile/jwt/algorithm-confusion`**
+ *
+ *       **Root cause:** The protected route calls `verifyAccessTokenViaAlg()`, which
+ *       branches on the `alg` field declared in the **attacker-controlled** token header.
+ *       The `HS256` branch performs no verification, allowing an attacker to bypass
+ *       authentication by switching the algorithm to `HS256` and signing with the
+ *       server's known RSA public key as the HMAC secret.
+ *
+ *       **How to exploit (Account Takeover via Algorithm Confusion):**
+ *       1. Login here with valid credentials to obtain a legitimate RS256-signed JWT
+ *       2. Fetch the server's public key from `GET /api/v1/.well-known/jwks.json`
+ *       3. Convert the public key JWK → PEM format
+ *       4. Craft a forged token:
+ *          - Header: `{ "alg": "HS256", "typ": "JWT" }`
+ *          - Payload: `{ "username": "administrator" }` (victim's account)
+ *          - Sign with the RSA public key PEM as the HMAC-SHA256 secret
+ *       5. Send `Authorization: Bearer <forged_token>` to
+ *          `GET /api/v1/profile/jwt/algorithm-confusion`
+ *       6. Server enters the unguarded `HS256` branch → bypasses verification → **ATO**
+ *
+ *       **References:**
+ *       - https://portswigger.net/web-security/jwt/algorithm-confusion
+ *       - https://www.rfc-editor.org/rfc/rfc7518#section-3.1
+ *
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         application/json:
+ *           schema:
+ *             $ref: '#/components/schemas/LoginRequest'
+ *           examples:
+ *             valid_credentials:
+ *               summary: Login with valid credentials
+ *               value:
+ *                 username: "carlos"
+ *                 password: "SecurePass123!"
+ *     responses:
+ *       200:
+ *         description: Login successful — returns an RS256-signed JWT
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 success:
+ *                   type: boolean
+ *                   example: true
+ *                 message:
+ *                   type: string
+ *                   example: "Login successfully"
+ *                 data:
+ *                   type: string
+ *                   description: "RS256-signed JWT — decode the header to observe `alg: \"RS256\"` and `kid`"
+ *                   example: "eyJhbGciOiJSUzI1NiIsInR5cCI6IkpXVCIsImtpZCI6InZ1bGxhYi1yczI1Ni1rZXktMSJ9.eyJpZCI6MSwidXNlcm5hbWUiOiJjYXJsb3MifQ.signature"
+ *       400:
+ *         description: Validation error (missing or invalid fields)
+ *         content:
+ *           application/json:
+ *             schema:
+ *               $ref: '#/components/schemas/ErrorResponse'
+ *       401:
+ *         description: Invalid username or password
+ *         content:
+ *           application/json:
+ *             schema:
+ *               $ref: '#/components/schemas/ErrorResponse'
+ */
+router.post(
+  "/algorithm-confusion/login",
+  loginRules,
+  handleValidation,
+  jwtController.jwtAuthenticationBypassViaAlgorithmConfusion,
+);
 module.exports = router;

@@ -10,6 +10,7 @@ const {
 } = require("./auth-validation.middleware");
 
 const {
+  requireAuthJwtButAlgorithmConfusion,
   requireAuthJwtButFlawedSignatureVerification,
   requireAuthJwtButJkuHeaderInjection,
   requireAuthJwtButJwkHeaderInjection,
@@ -41,6 +42,7 @@ module.exports = {
   requireTrustedHost,
   requireAuthJwtWithHS256Alg,
   requireAuthJwtWithRS256Alg,
+  requireAuthJwtButAlgorithmConfusion,
   requireAuthJwtButKidHeaderInjection,
   requireAuthJwtButJkuHeaderInjection,
   requireAuthJwtButWeakSigningKey,
