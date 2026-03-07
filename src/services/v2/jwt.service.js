@@ -98,7 +98,6 @@ const jwtService = {
     };
   },
 
-
   async jwtSecureAuthenticationBypassViaJkuHeaderInjection(data) {
     const { password, username } = data;
     const existedUser = await User.findOne({ where: { username: username } });
@@ -143,6 +142,27 @@ const jwtService = {
     };
   },
 
+  async jwtSecureAuthenticationBypassViaAlgorithmConfusion(data) {
+    const { password, username } = data;
+    const existedUser = await User.findOne({ where: { username: username } });
+
+    const salt = await bcrypt.genSalt(BCRYPT_SALT_ROUNDS);
+    const dummyHash = await bcrypt.hash(BCRYPT_DUMMY_PASSWORD, salt);
+    const targetHash = existedUser ? existedUser.password : dummyHash;
+
+    const isMatch = await bcrypt.compare(password, targetHash);
+
+    if (!existedUser || !isMatch) {
+      throw new AppError(401, "Invalid username or password");
+    }
+
+    return {
+      id: existedUser.id,
+      username: existedUser.username,
+      role: existedUser.role,
+      createdAt: existedUser.createdAt,
+    };
+  },
 };
 
 module.exports = jwtService;

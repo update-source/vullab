@@ -501,4 +501,53 @@ router.get(
   profileController.getProfile,
 );
 
+/**
+ * @swagger
+ * /api/v2/profile/jwt/algorithm-confusion:
+ *   get:
+ *     tags: [V2 - Profile (Secure)]
+ *     summary: Get profile via JWT (algorithm confusion blocked)
+ *     description: |
+ *       Secure version of the algorithm-confusion profile endpoint.
+ *
+ *       Unlike v1, this route does not trust attacker-provided `alg` header values
+ *       to choose verification logic. Token validation is pinned to the server's
+ *       configured algorithm/key, so forged HS256 tokens derived from an RS256 public
+ *       key are rejected.
+ *
+ *       **Expected behavior:**
+ *       - Valid server-issued token -> 200
+ *       - Forged token using RS256->HS256 confusion -> 401
+ *
+ *     security:
+ *       - bearerAuth: []
+ *     responses:
+ *       200:
+ *         description: User profile fetched successfully
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 success:
+ *                   type: boolean
+ *                   example: true
+ *                 message:
+ *                   type: string
+ *                   example: "Profile fetched successfully"
+ *                 data:
+ *                   type: object
+ *       401:
+ *         description: Unauthorized (missing token, invalid token, or algorithm confusion attempt)
+ *         content:
+ *           application/json:
+ *             schema:
+ *               $ref: '#/components/schemas/ErrorResponse'
+ */
+router.get(
+  "/jwt/algorithm-confusion",
+  requireAuthJwtWithHS256Alg,
+  profileController.getProfile,
+);
+
 module.exports = router;

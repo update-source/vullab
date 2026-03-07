@@ -448,4 +448,71 @@ router.post(
   jwtController.jwtSecureAuthenticationBypassViaKidHeaderInjection,
 );
 
+/**
+ * @swagger
+ * /api/v2/jwt/algorithm-confusion/login:
+ *   post:
+ *     tags: [V2 - JWT (Secure)]
+ *     summary: Login and get JWT token (algorithm confusion protected)
+ *     description: |
+ *       Secure login endpoint for the algorithm-confusion scenario.
+ *
+ *       This endpoint returns a normal HS256 access token after validating credentials.
+ *       The protected route `GET /api/v2/profile/jwt/algorithm-confusion` verifies tokens
+ *       using a fixed server-side key policy and does not trust attacker-controlled `alg`
+ *       header values.
+ *
+ *       **Security posture:** RS256-to-HS256 algorithm confusion attempts are blocked because
+ *       verification is pinned to server-side configuration.
+ *
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         application/json:
+ *           schema:
+ *             $ref: '#/components/schemas/LoginRequest'
+ *           examples:
+ *             valid_credentials:
+ *               summary: Login with valid credentials
+ *               value:
+ *                 username: "carlos"
+ *                 password: "SecurePass123!"
+ *     responses:
+ *       200:
+ *         description: Login successful and token issued
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 success:
+ *                   type: boolean
+ *                   example: true
+ *                 message:
+ *                   type: string
+ *                   example: "Login successfully"
+ *                 data:
+ *                   type: string
+ *                   description: Server-issued JWT access token
+ *                   example: "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpZCI6MSwidXNlcm5hbWUiOiJjYXJsb3MifQ.signature"
+ *       400:
+ *         description: Validation error (missing or invalid fields)
+ *         content:
+ *           application/json:
+ *             schema:
+ *               $ref: '#/components/schemas/ErrorResponse'
+ *       401:
+ *         description: Invalid username or password
+ *         content:
+ *           application/json:
+ *             schema:
+ *               $ref: '#/components/schemas/ErrorResponse'
+ */
+router.post(
+  "/algorithm-confusion/login",
+  loginRules,
+  handleValidation,
+  jwtController.jwtSecureAuthenticationBypassViaAlgorithmConfusion,
+);
+
 module.exports = router;

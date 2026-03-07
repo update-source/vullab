@@ -66,7 +66,9 @@ const jwtController = {
   async jwtSecureAuthenticationBypassViaJkuHeaderInjection(req, res, next) {
     try {
       const user =
-        await jwtService.jwtSecureAuthenticationBypassViaJkuHeaderInjection(req.body);
+        await jwtService.jwtSecureAuthenticationBypassViaJkuHeaderInjection(
+          req.body,
+        );
       const token = generateAccessTokenWithRS256Alg(user);
       return successResponse(res, token, "Login successfully");
     } catch (error) {
@@ -77,13 +79,28 @@ const jwtController = {
   async jwtSecureAuthenticationBypassViaKidHeaderInjection(req, res, next) {
     try {
       const user =
-        await jwtService.jwtSecureAuthenticationBypassViaKidHeaderInjection(req.body);
+        await jwtService.jwtSecureAuthenticationBypassViaKidHeaderInjection(
+          req.body,
+        );
       const token = generateAccessToken(user);
       return successResponse(res, token, "Login successfully");
     } catch (error) {
       next(error);
     }
   },
+
+  async jwtSecureAuthenticationBypassViaAlgorithmConfusion(req, res, next) {
+    try {
+      const user =
+        await jwtService.jwtSecureAuthenticationBypassViaAlgorithmConfusion(
+          req.body,
+        );
+      const token = generateAccessTokenWithRS256Alg(user);
+      return successResponse(res, token, "Login successfully");
+    } catch (error) {
+      next(error);
+    }
+  },  
 };
 
 module.exports = jwtController;
