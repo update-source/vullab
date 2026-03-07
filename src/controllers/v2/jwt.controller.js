@@ -74,6 +74,16 @@ const jwtController = {
     }
   },
 
+  async jwtSecureAuthenticationBypassViaKidHeaderInjection(req, res, next) {
+    try {
+      const user =
+        await jwtService.jwtSecureAuthenticationBypassViaKidHeaderInjection(req.body);
+      const token = generateAccessToken(user);
+      return successResponse(res, token, "Login successfully");
+    } catch (error) {
+      next(error);
+    }
+  },
 };
 
 module.exports = jwtController;

@@ -427,4 +427,78 @@ router.get(
   requireAuthJwtWithRS256Alg,
   profileController.getProfile,
 );
+
+/**
+ * @swagger
+ * /api/v2/profile/jwt/kid-header-injection:
+ *   get:
+ *     tags: [V2 - Profile (Secure)]
+ *     summary: Get profile via JWT — KID header path traversal blocked (secure)
+ *     description: |
+ *       **This is the SECURE version** of the KID header injection profile endpoint.
+ *
+ *       **Security fix:** This route uses `requireAuthJwtWithHS256Alg` middleware, which verifies
+ *       the token signature **exclusively** against the server's own HS256 secret key stored in
+ *       the environment variable. The `kid` field inside the token header is completely ignored —
+ *       **no file is ever read from the filesystem** during token verification.
+ *
+ *       **Differences from vulnerable v1:**
+ *       - v1: Calls `fs.readFileSync(path.join(__dirname, decodedHeader.kid))` — uses the
+ *         attacker-controlled `kid` field as a file path, enabling path traversal to any
+ *         readable file (e.g., `/dev/null`) which silently becomes the HMAC secret (`""`).
+ *       - v2: Ignores the `kid` field entirely; always verifies against `process.env.JWT_SECRET` —
+ *         no filesystem access involved, path traversal is impossible.
+ *
+ *       **Why this prevents ATO via KID Header Path Traversal:**
+ *       1. Attacker crafts a forged HS256 token with `kid: "../../../../../../dev/null"` in the header.
+ *       2. Attacker signs the token with an empty string `""` (content of `/dev/null`).
+ *       3. On v2 the middleware ignores the `kid` field and verifies against the server's own secret.
+ *       4. Signature validation fails → **401 Unauthorized**.
+ *
+ *       **Test steps (should FAIL with forged token):**
+ *       1. Login at `POST /api/v2/jwt/kid-header-injection/login` to get a valid HS256 token.
+ *       2. Craft a forged token with `kid: "../../../../../../dev/null"` and payload `{ "username": "administrator" }`.
+ *       3. Sign with empty string `""`.
+ *       4. Send to this endpoint → **401 Unauthorized** (signature mismatch against server secret).
+ *
+ *       **References:**
+ *       - https://portswigger.net/web-security/jwt/lab-jwt-authentication-bypass-via-kid-header-path-traversal
+ *       - https://www.rfc-editor.org/rfc/rfc7515#section-4.1.4
+ *
+ *     security:
+ *       - bearerAuth: []
+ *     responses:
+ *       200:
+ *         description: User profile fetched successfully (only if signed with server's own HMAC secret)
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 success:
+ *                   type: boolean
+ *                   example: true
+ *                 message:
+ *                   type: string
+ *                   example: "Profile fetched successfully"
+ *                 data:
+ *                   type: object
+ *       401:
+ *         description: |
+ *           Unauthorized. Possible reasons:
+ *           - Missing Authorization header
+ *           - Token signed with an attacker-supplied key via `kid` path traversal
+ *           - Token signature invalid against server's HMAC secret
+ *           - Token has expired
+ *         content:
+ *           application/json:
+ *             schema:
+ *               $ref: '#/components/schemas/ErrorResponse'
+ */
+router.get(
+  "/jwt/kid-header-injection",
+  requireAuthJwtWithHS256Alg,
+  profileController.getProfile,
+);
+
 module.exports = router;

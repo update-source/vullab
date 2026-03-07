@@ -38,12 +38,13 @@ const verifyAccessTokenViaHS256Alg = (token) => {
     algorithms: [accessTokenOptions.algorithm],
   });
 };
-
+//https://curity.io/resources/learn/jwt-best-practices/
 const verifyAccessTokenViaRS256Alg = (token) => {
   return jwt.verify(token, JWT_PUBLIC_KEY, {
     issuer: accessTokenOptions.issuer,
     audience: accessTokenOptions.audience,
     algorithms: ["RS256"],
+    keyid: accessTokenOptions.keyid,
   });
 };
 
@@ -80,6 +81,7 @@ const verifyAccessTokenViaJwk = (token) => {
       issuer: accessTokenOptions.issuer,
       audience: accessTokenOptions.audience,
       algorithms: ["RS256"],
+      keyid: accessTokenOptions.keyid,
     });
   }
   // If user does not send jwk, the public key will be used
@@ -87,6 +89,7 @@ const verifyAccessTokenViaJwk = (token) => {
     issuer: accessTokenOptions.issuer,
     audience: accessTokenOptions.audience,
     algorithms: ["RS256"],
+    keyid: accessTokenOptions.keyid,
   });
 };
 
@@ -120,6 +123,7 @@ const verifyAccessTokenViaJku = async (token) => {
       issuer: accessTokenOptions.issuer,
       audience: accessTokenOptions.audience,
       algorithms: ["RS256"],
+      keyid: accessTokenOptions.keyid,
     });
   } catch (error) {
     return null;

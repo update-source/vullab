@@ -25,6 +25,7 @@ const accessTokenOptions = {
   issuer: JWT_ISSUER,
   audience: JWT_AUDIENCE,
   algorithm: "HS256",
+  keyid: JWT_KID,
 };
 
 const refreshTokenOptions = {

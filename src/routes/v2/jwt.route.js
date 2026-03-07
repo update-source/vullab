@@ -367,4 +367,85 @@ router.post(
   jwtController.jwtSecureAuthenticationBypassViaJkuHeaderInjection,
 );
 
+/**
+ * @swagger
+ * /api/v2/jwt/kid-header-injection/login:
+ *   post:
+ *     tags: [V2 - JWT (Secure)]
+ *     summary: Secure JWT login (fixed KID header injection)
+ *     description: |
+ *       **This is the SECURE version** of the JWT login endpoint for the KID header injection lab.
+ *       It issues an HS256-signed JWT using the server's own HMAC secret.
+ *       The protected route (`GET /api/v2/profile/jwt/kid-header-injection`) verifies the token
+ *       **exclusively using the server's own stored secret key**, completely ignoring any `kid`
+ *       field embedded inside the token header — no filesystem access is performed.
+ *
+ *       **Differences from vulnerable v1:**
+ *       - v1 reads the signing key from the file path specified by the `kid` header field using
+ *         `fs.readFileSync(path.join(__dirname, decodedHeader.kid))`, enabling path traversal
+ *         (e.g., `kid: "../../../../../../dev/null"` → HMAC secret = `""`).
+ *       - v2 ignores the `kid` header field entirely and always uses the configured
+ *         `JWT_SECRET` environment variable — no file is ever read from disk during verification.
+ *
+ *       **Security properties:**
+ *       - Rejects forged tokens whose HMAC cannot be verified with the server's secret
+ *       - Attacker-supplied `kid` path values in the token header are completely ignored
+ *       - Prevents path traversal to arbitrary files (e.g., `/dev/null`) as signing key source
+ *       - Prevents Account Takeover (ATO) via KID header path traversal
+ *
+ *       **Token payload structure:**
+ *       ```json
+ *       { "id": 1, "username": "carlos", "role": "user", "iat": 1700000000, "exp": 1700003600 }
+ *       ```
+ *
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         application/json:
+ *           schema:
+ *             $ref: '#/components/schemas/LoginRequest'
+ *           examples:
+ *             valid_credentials:
+ *               summary: Login with valid credentials
+ *               value:
+ *                 username: "carlos"
+ *                 password: "SecurePass123!"
+ *     responses:
+ *       200:
+ *         description: Login successful — returns an HS256-signed JWT
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 success:
+ *                   type: boolean
+ *                   example: true
+ *                 message:
+ *                   type: string
+ *                   example: "Login successfully"
+ *                 data:
+ *                   type: string
+ *                   description: HS256-signed JWT — KID path traversal attack will fail on the protected route
+ *                   example: "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpZCI6MSwidXNlcm5hbWUiOiJjYXJsb3MifQ.signature"
+ *       400:
+ *         description: Validation error (missing or invalid fields)
+ *         content:
+ *           application/json:
+ *             schema:
+ *               $ref: '#/components/schemas/ErrorResponse'
+ *       401:
+ *         description: Invalid username or password
+ *         content:
+ *           application/json:
+ *             schema:
+ *               $ref: '#/components/schemas/ErrorResponse'
+ */
+router.post(
+  "/kid-header-injection/login",
+  loginRules,
+  handleValidation,
+  jwtController.jwtSecureAuthenticationBypassViaKidHeaderInjection,
+);
+
 module.exports = router;
