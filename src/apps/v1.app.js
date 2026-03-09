@@ -4,6 +4,7 @@ const authRouteV1 = require("../routes/v1/auth.route");
 const jwtRouteV1 = require("../routes/v1/jwt.route");
 const profileRouteV1 = require("../routes/v1/profile.route");
 const wellKnownRouteV1 = require("../routes/v1/well-known.route");
+const xmlRouteV1 = require("../routes/v1/xml.route");
 
 const v1App = express();
 
@@ -24,6 +25,7 @@ v1App.set("trust proxy", true);
 v1App.use("/auth", authRouteV1);
 v1App.use("/jwt", jwtRouteV1);
 v1App.use("/profile", profileRouteV1);
+v1App.use("/xxe", xmlRouteV1);
 v1App.use("/.well-known", wellKnownRouteV1);
 
 module.exports = v1App;

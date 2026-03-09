@@ -5,15 +5,11 @@ const {
   generateAccessTokenWithRS256Alg,
   generateAccessTokenWithWeakSecret,
 } = require("../../utils/jwt");
-const AppError = require("../../utils/AppError");
 
 const jwtController = {
-  async jwtAuthenticationBypassViaUnverifiedSignature(req, res, next) {
+  async loginUnverifiedSignature(req, res, next) {
     try {
-      const user =
-        await jwtService.jwtAuthenticationBypassViaUnverifiedSignature(
-          req.body,
-        );
+      const user = await jwtService.validateCredentials(req.body);
       const token = generateAccessToken(user);
       return successResponse(res, token, "Login successfully");
     } catch (error) {
@@ -21,12 +17,9 @@ const jwtController = {
     }
   },
 
-  async jwtAuthenticationBypassViaFlawedSignatureVerification(req, res, next) {
+  async loginFlawedSignatureVerification(req, res, next) {
     try {
-      const user =
-        await jwtService.jwtAuthenticationBypassViaFlawedSignatureVerification(
-          req.body,
-        );
+      const user = await jwtService.validateCredentials(req.body);
       const token = generateAccessToken(user);
       return successResponse(res, token, "Login successfully");
     } catch (error) {
@@ -34,11 +27,9 @@ const jwtController = {
     }
   },
 
-  async jwtAuthenticationBypassViaWeakSigningKey(req, res, next) {
+  async loginWeakSigningKey(req, res, next) {
     try {
-      const user = await jwtService.jwtAuthenticationBypassViaWeakSigningKey(
-        req.body,
-      );
+      const user = await jwtService.validateCredentials(req.body);
       const token = generateAccessTokenWithWeakSecret(user);
       return successResponse(res, token, "Login successfully");
     } catch (error) {
@@ -46,10 +37,9 @@ const jwtController = {
     }
   },
 
-  async jwtAuthenticationBypassViaJwkHeaderInjection(req, res, next) {
+  async loginJwkHeaderInjection(req, res, next) {
     try {
-      const user =
-        await jwtService.jwtAuthenticationBypassViaJwkHeaderInjection(req.body);
+      const user = await jwtService.validateCredentials(req.body);
       const token = generateAccessTokenWithRS256Alg(user);
       return successResponse(res, token, "Login successfully");
     } catch (error) {
@@ -57,10 +47,9 @@ const jwtController = {
     }
   },
 
-  async jwtAuthenticationBypassViaJkuHeaderInjection(req, res, next) {
+  async loginJkuHeaderInjection(req, res, next) {
     try {
-      const user =
-        await jwtService.jwtAuthenticationBypassViaJkuHeaderInjection(req.body);
+      const user = await jwtService.validateCredentials(req.body);
       const token = generateAccessTokenWithRS256Alg(user);
       return successResponse(res, token, "Login successfully");
     } catch (error) {
@@ -68,10 +57,9 @@ const jwtController = {
     }
   },
 
-  async jwtAuthenticationBypassViaKidHeaderInjection(req, res, next) {
+  async loginKidHeaderInjection(req, res, next) {
     try {
-      const user =
-        await jwtService.jwtAuthenticationBypassViaKidHeaderInjection(req.body);
+      const user = await jwtService.validateCredentials(req.body);
       const token = generateAccessToken(user);
       return successResponse(res, token, "Login successfully");
     } catch (error) {
@@ -79,17 +67,15 @@ const jwtController = {
     }
   },
 
-  async jwtAuthenticationBypassViaAlgorithmConfusion(req, res, next) {
+  async loginAlgorithmConfusion(req, res, next) {
     try {
-      const user =
-        await jwtService.jwtAuthenticationBypassViaAlgorithmConfusion(req.body);
+      const user = await jwtService.validateCredentials(req.body);
       const token = generateAccessTokenWithRS256Alg(user);
       return successResponse(res, token, "Login successfully");
     } catch (error) {
       next(error);
     }
   },
-
 };
 
 module.exports = jwtController;

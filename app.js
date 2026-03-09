@@ -1,6 +1,5 @@
 const express = require("express");
 const session = require("./src/config/session.config");
-const { connectRedis } = require("./src/config/redis.config");
 const cookieParser = require("cookie-parser");
 const app = express();
 const port = process.env.PORT || 3500;
@@ -16,6 +15,7 @@ app.use(cookieParser());
 app.use(useragent.express());
 app.use(session);
 app.use(express.json());
+app.use(express.text({ type: "application/xml", limit: "100kb" })); // To get the raw xml from res.body
 app.use(express.urlencoded({ extended: true }));
 
 // Swagger UI
