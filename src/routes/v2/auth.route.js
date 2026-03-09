@@ -1,6 +1,6 @@
 const express = require("express");
 const router = express.Router();
-const { authController } = require("../../controllers/v2");
+const { authController, profileController } = require("../../controllers/v2");
 const {
   changePasswordBruteForceRules,
   generateForgotPasswordTokenRules,
@@ -9,8 +9,10 @@ const {
   otpRules,
   registerRules,
   requireAuthSession,
+  requireAuthSessionOrCookie,
   requirePendingOtpSession,
   requireTrustedHost,
+  resolveCookieIdentity,
   resetSecurePasswordBrokenLogicRules,
 } = require("../../middlewares");
 
@@ -201,7 +203,7 @@ router.post(
  *       Example: a1b2c3d4e5f6a7b8:c9d0e1f2...
  *       ```
  *
- *       After login, use `GET /api/v2/profile/cookie` with the issued cookie.
+ *       After login, use `GET /api/v2/auth/stay-logged-in/profile` with the issued cookie.
  *     requestBody:
  *       required: true
  *       content:
@@ -225,7 +227,7 @@ router.post(
  *               - password
  *     responses:
  *       302:
- *         description: Login successful, redirected to /api/v2/profile/cookie
+ *         description: Login successful, redirected to /api/v2/auth/stay-logged-in/profile
  *         headers:
  *           Set-Cookie:
  *             description: Session cookie and optionally stay-logged-in cookie
@@ -928,5 +930,75 @@ router.post(
  *         description: Logged out successfully
  */
 router.post("/logout", authController.logout);
+
+// ═══════════════════════════════════════════════════════════════
+// PROTECTED PROFILE ENDPOINTS
+// ═══════════════════════════════════════════════════════════════
+
+/**
+ * @swagger
+ * /api/v2/auth/profile:
+ *   get:
+ *     tags: [V2 - Authentication (Secure)]
+ *     summary: Get user profile (secure - requires logged_in stage)
+ *     description: |
+ *       Securely retrieves user profile data. Properly validates session stage.
+ *
+ *       ---
+ *       **🧭 Lab Guide:** Call any auth login endpoint first, then access this.
+ *
+ *     security:
+ *       - cookieAuth: []
+ *     responses:
+ *       200:
+ *         description: User profile data
+ *       401:
+ *         description: Unauthorized - missing or invalid session
+ *       403:
+ *         description: Forbidden - session stage not valid
+ */
+router.get("/profile", requireAuthSession, profileController.getProfile);
+
+/**
+ * @swagger
+ * /api/v2/auth/stay-logged-in/profile:
+ *   get:
+ *     tags: [V2 - Authentication (Secure)]
+ *     summary: Get profile via session or secure remember-me cookie
+ *     description: |
+ *       Accepts authentication via either a valid session or a secure `stay-logged-in` cookie.
+ *
+ *       **Secure cookie format:** `selector:validator`
+ *       - `selector` (16 hex chars): used to look up the token record in DB
+ *       - `validator` (64 hex chars): raw value that is SHA-256 hashed and compared against stored hash
+ *
+ *       ---
+ *       **🧭 Lab Guide — API call order:**
+ *       | Step | Method | Endpoint | Purpose |
+ *       |------|--------|----------|---------|  
+ *       | 1 | POST | `/api/v2/auth/brute-force/stay-logged-in-cookie` | Login with remember-me |
+ *       | 2 | GET | `/api/v2/auth/stay-logged-in/profile` ← you are here | Use cookie (secure: selector:validator) |
+ *
+ *     security:
+ *       - cookieAuth: []
+ *     parameters:
+ *       - in: cookie
+ *         name: stay-logged-in
+ *         schema:
+ *           type: string
+ *           example: "a1b2c3d4e5f6a7b8:c9d0e1f2a3b4c5d6e7f8a9b0c1d2e3f4a5b6c7d8e9f0a1b2c3d4e5f6a7b8c9d0"
+ *         description: Secure remember-me cookie in selector:validator format
+ *     responses:
+ *       200:
+ *         description: Profile fetched successfully
+ *       401:
+ *         description: Unauthorized
+ */
+router.get(
+  "/stay-logged-in/profile",
+  requireAuthSessionOrCookie,
+  resolveCookieIdentity,
+  profileController.getProfile,
+);
 
 module.exports = router;

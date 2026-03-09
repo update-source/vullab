@@ -132,24 +132,21 @@ const options = {
         description: "Vulnerable authentication endpoints for testing",
       },
       {
-        name: "V1 - JWT (Vulnerable)",
-        description: "Vulnerable JWT endpoints for testing",
-      },
-      {
         name: "V2 - Authentication (Secure)",
         description: "Secure authentication endpoints with fixes",
+      },
+      {
+        name: "V1 - JWT (Vulnerable)",
+        description: "Vulnerable JWT endpoints for testing",
       },
       {
         name: "V2 - JWT (Secure)",
         description: "Secure JWT endpoints with proper signature verification",
       },
       {
-        name: "V1 - Profile (Vulnerable)",
-        description: "User profile endpoints",
-      },
-      {
-        name: "V2 - Profile (Secure)",
-        description: "Secure profile endpoints with proper authentication",
+        name: "V1 - Well-Known",
+        description:
+          "RFC 5785 well-known endpoints — exposes the server's RS256 public key as a JWKS for JWT verification labs",
       },
       {
         name: "V2 - Well-Known",

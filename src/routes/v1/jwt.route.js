@@ -1,8 +1,18 @@
 const express = require("express");
 const router = express.Router();
-const { jwtController } = require("../../controllers/v1");
+const { jwtController, profileController } = require("../../controllers/v1");
 
-const { handleValidation, loginRules } = require("../../middlewares");
+const {
+  handleValidation,
+  loginRules,
+  requireAuthJwtButUnverifiedSignature,
+  requireAuthJwtButFlawedSignatureVerification,
+  requireAuthJwtButWeakSigningKey,
+  requireAuthJwtButJwkHeaderInjection,
+  requireAuthJwtButJkuHeaderInjection,
+  requireAuthJwtButKidHeaderInjection,
+  requireAuthJwtButAlgorithmConfusion,
+} = require("../../middlewares");
 
 /**
  * @swagger
@@ -15,7 +25,7 @@ const { handleValidation, loginRules } = require("../../middlewares");
  *       **This endpoint itself has no vulnerability** — it correctly signs the token.
  *
  *       The vulnerability exists in the protected route that consumes this token:
- *       **`GET /api/v1/profile/jwt/unverified-signature`**
+ *       **`GET /api/v1/jwt/unverified-signature`**
  *
  *       **Root cause:** The protected route uses `jwt.decode()` instead of `jwt.verify()`.
  *       `jwt.decode()` only parses the payload without checking the signature, so any
@@ -25,14 +35,14 @@ const { handleValidation, loginRules } = require("../../middlewares");
  *       1. Login here with your own credentials to obtain a valid JWT
  *       2. Decode the payload (base64url) — structure: `{ "id": 1, "username": "carlos", "role": "user" }`
  *       3. Change `id` or `username` to any victim's values
- *       4. Send the forged token to `GET /api/v1/profile/jwt/unverified-signature` → ATO
+ *       4. Send the forged token to `GET /api/v1/jwt/unverified-signature` → ATO
  *
  *       ---
  *       **Lab Guide — API call order:**
  *       | Step | Method | Endpoint | Purpose |
  *       |------|--------|----------|---------|
  *       | 1 | POST | `/api/v1/jwt/unverified-signature/login` ← you are here | Get a valid JWT token |
- *       | 2 | GET | `/api/v1/profile/jwt/unverified-signature` | Use token (vuln: signature not verified) |
+ *       | 2 | GET | `/api/v1/jwt/unverified-signature` | Use token (vuln: signature not verified) |
  *
  *       **References:**
  *       - https://portswigger.net/web-security/jwt/lab-jwt-authentication-bypass-via-unverified-signature
@@ -101,7 +111,7 @@ router.post(
  *       **This endpoint itself has no vulnerability** — it correctly signs the token with HS256.
  *
  *       The vulnerability exists in the protected route that consumes this token:
- *       **`GET /api/v1/profile/jwt/flawed-signature-verification`**
+ *       **`GET /api/v1/jwt/flawed-signature-verification`**
  *
  *       **Root cause:** The protected route accepts JWT tokens with `algorithm: "none"`.
  *       It uses `jwt.verify()` but allows the "none" algorithm in the verification options,
@@ -121,14 +131,14 @@ router.post(
  *       5. **Create forged token without signature**:
  *          - Format: `base64url(header) + "." + base64url(payload) + "."` (note the trailing dot with no signature)
  *          - Example: `eyJhbGciOiJub25lIiwidHlwIjoiSldUIn0.eyJpZCI6MiwidXNlcm5hbWUiOiJhZG1pbmlzdHJhdG9yIn0.`
- *       6. Send the forged token to `GET /api/v1/profile/jwt/flawed-signature-verification` → ATO
+ *       6. Send the forged token to `GET /api/v1/jwt/flawed-signature-verification` → ATO
  *
  *       ---
  *       **Lab Guide — API call order:**
  *       | Step | Method | Endpoint | Purpose |
  *       |------|--------|----------|---------|
  *       | 1 | POST | `/api/v1/jwt/flawed-signature-verification/login` ← you are here | Get a valid JWT token |
- *       | 2 | GET | `/api/v1/profile/jwt/flawed-signature-verification` | Use token (vuln: accepts alg "none") |
+ *       | 2 | GET | `/api/v1/jwt/flawed-signature-verification` | Use token (vuln: accepts alg "none") |
  *
  *       **References:**
  *       - https://portswigger.net/web-security/jwt/lab-jwt-authentication-bypass-via-flawed-signature-verification
@@ -210,7 +220,7 @@ router.post(
  *       | Step | Method | Endpoint | Purpose |
  *       |------|--------|----------|---------|
  *       | 1 | POST | `/api/v1/jwt/weak-signing-key/login` ← you are here | Get JWT signed with weak key |
- *       | 2 | GET | `/api/v1/profile/jwt/weak-signing-key` | Use token (vuln: key is brute-forceable) |
+ *       | 2 | GET | `/api/v1/jwt/weak-signing-key` | Use token (vuln: key is brute-forceable) |
  *
  *     requestBody:
  *       required: true
@@ -247,7 +257,7 @@ router.post(
  *     description: |
  *       Login endpoint for the **JWT Authentication Bypass via JWK Header Injection** lab.
  *
- *       **Vulnerability:** The protected route (`GET /api/v1/profile/jwt/jwk-header-injection`)
+ *       **Vulnerability:** The protected route (`GET /api/v1/jwt/jwk-header-injection`)
  *       verifies the token using the `jwk` field embedded inside the token's own header.
  *       This means an attacker can supply their own RSA key pair, embed the public key as `jwk`
  *       in the header, sign the token with the matching private key, and the server will
@@ -260,7 +270,7 @@ router.post(
  *          - Set header: `{ "alg": "RS256", "jwk": { <attacker's public key> } }`
  *          - Set payload: `{ "username": "administrator", "role": "admin", ... }`
  *          - Sign with attacker's **private** key
- *       4. Send to `GET /api/v1/profile/jwt/jwk-header-injection` as `Authorization: Bearer <forged_token>`
+ *       4. Send to `GET /api/v1/jwt/jwk-header-injection` as `Authorization: Bearer <forged_token>`
  *       5. Server extracts `jwk` from the header, trusts it, verifies signature → **ATO**
  *
  *       ---
@@ -268,7 +278,7 @@ router.post(
  *       | Step | Method | Endpoint | Purpose |
  *       |------|--------|----------|---------|
  *       | 1 | POST | `/api/v1/jwt/jwk-header-injection/login` ← you are here | Get RS256 JWT |
- *       | 2 | GET | `/api/v1/profile/jwt/jwk-header-injection` | Use token (vuln: trusts embedded jwk) |
+ *       | 2 | GET | `/api/v1/jwt/jwk-header-injection` | Use token (vuln: trusts embedded jwk) |
  *
  *       **References:**
  *       - https://portswigger.net/web-security/jwt/lab-jwt-authentication-bypass-via-jwk-header-injection
@@ -325,7 +335,7 @@ router.post(
  *       Login endpoint for the **JWT Authentication Bypass via JKU Header Injection** lab.
  *       (`jku` = JWK Set URL — defined in RFC 7515 §4.1.2)
  *
- *       **Vulnerability:** The protected route (`GET /api/v1/profile/jwt/jku-header-injection`)
+ *       **Vulnerability:** The protected route (`GET /api/v1/jwt/jku-header-injection`)
  *       verifies the token by fetching the JWKS from the URL specified in the token's own `jku`
  *       header field, then selecting the key whose `kid` matches `decodedHeader.kid`.
  *       Because the server **does not validate** that `jku` points to a trusted domain,
@@ -343,7 +353,7 @@ router.post(
  *          - Header: `{ "alg": "RS256", "kid": "vullab-rs256-key-1", "jku": "https://attacker.com/jwks.json" }`
  *          - Payload: `{ "id": <victim_id>, "username": "administrator", ... }`
  *          - Sign with attacker's **private** key
- *       5. Send to `GET /api/v1/profile/jwt/jku-header-injection` as `Authorization: Bearer <forged_token>`
+ *       5. Send to `GET /api/v1/jwt/jku-header-injection` as `Authorization: Bearer <forged_token>`
  *       6. Server follows `jku`, fetches attacker's JWKS, verifies signature → **ATO**
  *
  *       ---
@@ -352,7 +362,7 @@ router.post(
  *       |------|--------|----------|---------|
  *       | 1 | POST | `/api/v1/jwt/jku-header-injection/login` ← you are here | Get RS256 JWT |
  *       | 2 | GET | `/api/v1/.well-known/jwks.json` | (Optional) Observe server's JWKS structure |
- *       | 3 | GET | `/api/v1/profile/jwt/jku-header-injection` | Use token (vuln: fetches untrusted jku URL) |
+ *       | 3 | GET | `/api/v1/jwt/jku-header-injection` | Use token (vuln: fetches untrusted jku URL) |
  *
  *       **References:**
  *       - https://portswigger.net/web-security/jwt/lab-jwt-authentication-bypass-via-jku-header-injection
@@ -424,7 +434,7 @@ router.post(
  *       to the server's own key file path.
  *
  *       The vulnerability exists in the protected route that consumes this token:
- *       **`GET /api/v1/profile/jwt/kid-header-injection`**
+ *       **`GET /api/v1/jwt/kid-header-injection`**
  *
  *       **Root cause:** The protected route calls `verifyAccessTokenViaKid()`, which reads the
  *       signing key by calling `fs.readFileSync(path.join(__dirname, decodedHeader.kid))`.
@@ -440,7 +450,7 @@ router.post(
  *          - Sign the token using an **empty string** `""` as the HMAC secret
  *            (because `/dev/null` is an empty file → the key material is `""`)
  *       3. Send `Authorization: Bearer <forged_token>` to
- *          `GET /api/v1/profile/jwt/kid-header-injection`
+ *          `GET /api/v1/jwt/kid-header-injection`
  *       4. Server traverses to `/dev/null`, reads `""`, verifies HMAC successfully → **ATO**
  *
  *       ---
@@ -448,7 +458,7 @@ router.post(
  *       | Step | Method | Endpoint | Purpose |
  *       |------|--------|----------|---------|
  *       | 1 | POST | `/api/v1/jwt/kid-header-injection/login` ← you are here | Get HS256 JWT with kid field |
- *       | 2 | GET | `/api/v1/profile/jwt/kid-header-injection` | Use token (vuln: kid path traversal) |
+ *       | 2 | GET | `/api/v1/jwt/kid-header-injection` | Use token (vuln: kid path traversal) |
  *
  *       **References:**
  *       - https://portswigger.net/web-security/jwt/lab-jwt-authentication-bypass-via-kid-header-path-traversal
@@ -517,7 +527,7 @@ router.post(
  *       with the server's RSA private key.
  *
  *       The vulnerability exists in the protected route that consumes this token:
- *       **`GET /api/v1/profile/jwt/algorithm-confusion`**
+ *       **`GET /api/v1/jwt/algorithm-confusion`**
  *
  *       **Root cause:** The protected route calls `verifyAccessTokenViaAlg()`, which
  *       branches on the `alg` field declared in the **attacker-controlled** token header.
@@ -534,7 +544,7 @@ router.post(
  *          - Payload: `{ "username": "administrator" }` (victim's account)
  *          - Sign with the RSA public key PEM as the HMAC-SHA256 secret
  *       5. Send `Authorization: Bearer <forged_token>` to
- *          `GET /api/v1/profile/jwt/algorithm-confusion`
+ *          `GET /api/v1/jwt/algorithm-confusion`
  *       6. Server enters the unguarded `HS256` branch → bypasses verification → **ATO**
  *
  *       ---
@@ -543,7 +553,7 @@ router.post(
  *       |------|--------|----------|---------|
  *       | 1 | POST | `/api/v1/jwt/algorithm-confusion/login` ← you are here | Get RS256 JWT |
  *       | 2 | GET | `/api/v1/.well-known/jwks.json` | Get server's public key (for forging HS256 token) |
- *       | 3 | GET | `/api/v1/profile/jwt/algorithm-confusion` | Use token (vuln: trusts alg from header) |
+ *       | 3 | GET | `/api/v1/jwt/algorithm-confusion` | Use token (vuln: trusts alg from header) |
  *
  *       **References:**
  *       - https://portswigger.net/web-security/jwt/algorithm-confusion
@@ -598,4 +608,233 @@ router.post(
   handleValidation,
   jwtController.loginAlgorithmConfusion,
 );
+
+// ═══════════════════════════════════════════════════════════════
+// PROTECTED PROFILE ENDPOINTS (vulnerability lives HERE)
+// Each route uses a different vulnerable JWT verification middleware.
+// The login endpoints above generate tokens; these endpoints CONSUME them.
+// ═══════════════════════════════════════════════════════════════
+
+/**
+ * @swagger
+ * /api/v1/jwt/unverified-signature/profile:
+ *   get:
+ *     tags: [V1 - JWT (Vulnerable)]
+ *     summary: Get profile via JWT with unverified signature (vulnerable)
+ *     description: |
+ *       Protected endpoint vulnerable to **Authentication Bypass via Unverified JWT Signature**.
+ *
+ *       **Root cause:** This route uses `jwt.decode()` instead of `jwt.verify()`.
+ *       `jwt.decode()` simply parses the base64url payload without validating the
+ *       cryptographic signature, so the server blindly trusts whatever is in the token.
+ *
+ *       ---
+ *       **🧭 Lab Guide — API call order:**
+ *       | Step | Method | Endpoint | Purpose |
+ *       |------|--------|----------|---------|  
+ *       | 1 | POST | `/api/v1/jwt/unverified-signature/login` | Get a valid JWT token |
+ *       | 2 | GET | `/api/v1/jwt/unverified-signature/profile` ← you are here | Use token (vuln: signature not verified) |
+ *
+ *     security:
+ *       - bearerAuth: []
+ *     responses:
+ *       200:
+ *         description: User profile fetched successfully
+ *       401:
+ *         description: Unauthorized — missing or malformed token
+ */
+router.get(
+  "/unverified-signature/profile",
+  requireAuthJwtButUnverifiedSignature,
+  profileController.getProfile,
+);
+
+/**
+ * @swagger
+ * /api/v1/jwt/flawed-signature-verification/profile:
+ *   get:
+ *     tags: [V1 - JWT (Vulnerable)]
+ *     summary: Get profile via JWT with flawed signature verification (vulnerable to alg "none")
+ *     description: |
+ *       Protected endpoint vulnerable to **JWT Algorithm Confusion** ("none" attack).
+ *
+ *       **Root cause:** This route accepts `alg: "none"` in the JWT header.
+ *
+ *       ---
+ *       **🧭 Lab Guide — API call order:**
+ *       | Step | Method | Endpoint | Purpose |
+ *       |------|--------|----------|---------|  
+ *       | 1 | POST | `/api/v1/jwt/flawed-signature-verification/login` | Get JWT |
+ *       | 2 | GET | `/api/v1/jwt/flawed-signature-verification/profile` ← you are here | Use token (vuln: accepts alg "none") |
+ *
+ *     security:
+ *       - bearerAuth: []
+ *     responses:
+ *       200:
+ *         description: User profile fetched successfully
+ *       401:
+ *         description: Unauthorized
+ */
+router.get(
+  "/flawed-signature-verification/profile",
+  requireAuthJwtButFlawedSignatureVerification,
+  profileController.getProfile,
+);
+
+/**
+ * @swagger
+ * /api/v1/jwt/weak-signing-key/profile:
+ *   get:
+ *     tags: [V1 - JWT (Vulnerable)]
+ *     summary: Get profile via JWT signed with a weak key (vulnerable to brute-forcing)
+ *     description: |
+ *       Protected endpoint vulnerable to **JWT Weak Signing Key** brute-force.
+ *
+ *       ---
+ *       **🧭 Lab Guide — API call order:**
+ *       | Step | Method | Endpoint | Purpose |
+ *       |------|--------|----------|---------|  
+ *       | 1 | POST | `/api/v1/jwt/weak-signing-key/login` | Get JWT (signed with weak key) |
+ *       | 2 | GET | `/api/v1/jwt/weak-signing-key/profile` ← you are here | Use token (vuln: key is brute-forceable) |
+ *
+ *     security:
+ *       - bearerAuth: []
+ *     responses:
+ *       200:
+ *         description: User profile fetched successfully
+ *       401:
+ *         description: Unauthorized
+ */
+router.get(
+  "/weak-signing-key/profile",
+  requireAuthJwtButWeakSigningKey,
+  profileController.getProfile,
+);
+
+/**
+ * @swagger
+ * /api/v1/jwt/jwk-header-injection/profile:
+ *   get:
+ *     tags: [V1 - JWT (Vulnerable)]
+ *     summary: Get profile via JWT with JWK Header Injection (vulnerable)
+ *     description: |
+ *       Protected endpoint vulnerable to **JWK Header Injection**.
+ *       The middleware trusts the `jwk` field from the token header.
+ *
+ *       ---
+ *       **🧭 Lab Guide — API call order:**
+ *       | Step | Method | Endpoint | Purpose |
+ *       |------|--------|----------|---------|  
+ *       | 1 | POST | `/api/v1/jwt/jwk-header-injection/login` | Get RS256 JWT |
+ *       | 2 | GET | `/api/v1/jwt/jwk-header-injection/profile` ← you are here | Use token (vuln: trusts embedded jwk) |
+ *
+ *     security:
+ *       - bearerAuth: []
+ *     responses:
+ *       200:
+ *         description: User profile fetched successfully
+ *       401:
+ *         description: Unauthorized
+ */
+router.get(
+  "/jwk-header-injection/profile",
+  requireAuthJwtButJwkHeaderInjection,
+  profileController.getProfile,
+);
+
+/**
+ * @swagger
+ * /api/v1/jwt/jku-header-injection/profile:
+ *   get:
+ *     tags: [V1 - JWT (Vulnerable)]
+ *     summary: Get profile via JWT — vulnerable to JKU Header Injection
+ *     description: |
+ *       Protected endpoint vulnerable to **JKU Header Injection**.
+ *       The server fetches JWKS from the untrusted `jku` URL in the token header.
+ *
+ *       ---
+ *       **🧭 Lab Guide — API call order:**
+ *       | Step | Method | Endpoint | Purpose |
+ *       |------|--------|----------|---------|  
+ *       | 1 | POST | `/api/v1/jwt/jku-header-injection/login` | Get RS256 JWT |
+ *       | 2 | GET | `/api/v1/.well-known/jwks.json` | (Optional) Observe server's JWKS |
+ *       | 3 | GET | `/api/v1/jwt/jku-header-injection/profile` ← you are here | Use token (vuln: fetches untrusted jku) |
+ *
+ *     security:
+ *       - bearerAuth: []
+ *     responses:
+ *       200:
+ *         description: User profile fetched successfully
+ *       401:
+ *         description: Unauthorized
+ */
+router.get(
+  "/jku-header-injection/profile",
+  requireAuthJwtButJkuHeaderInjection,
+  profileController.getProfile,
+);
+
+/**
+ * @swagger
+ * /api/v1/jwt/kid-header-injection/profile:
+ *   get:
+ *     tags: [V1 - JWT (Vulnerable)]
+ *     summary: Get profile via JWT — vulnerable to KID Header Path Traversal
+ *     description: |
+ *       Protected endpoint vulnerable to **KID Header Path Traversal**.
+ *       The server reads HMAC key from `fs.readFileSync(decodedHeader.kid)`.
+ *
+ *       ---
+ *       **🧭 Lab Guide — API call order:**
+ *       | Step | Method | Endpoint | Purpose |
+ *       |------|--------|----------|---------|  
+ *       | 1 | POST | `/api/v1/jwt/kid-header-injection/login` | Get HS256 JWT with kid field |
+ *       | 2 | GET | `/api/v1/jwt/kid-header-injection/profile` ← you are here | Use token (vuln: kid path traversal) |
+ *
+ *     security:
+ *       - bearerAuth: []
+ *     responses:
+ *       200:
+ *         description: User profile fetched successfully
+ *       401:
+ *         description: Unauthorized
+ */
+router.get(
+  "/kid-header-injection/profile",
+  requireAuthJwtButKidHeaderInjection,
+  profileController.getProfile,
+);
+
+/**
+ * @swagger
+ * /api/v1/jwt/algorithm-confusion/profile:
+ *   get:
+ *     tags: [V1 - JWT (Vulnerable)]
+ *     summary: Get profile via JWT — vulnerable to Algorithm Confusion
+ *     description: |
+ *       Protected endpoint vulnerable to **Algorithm Confusion** (RS256 → HS256).
+ *       The server trusts the `alg` header and allows switching to HS256.
+ *
+ *       ---
+ *       **🧭 Lab Guide — API call order:**
+ *       | Step | Method | Endpoint | Purpose |
+ *       |------|--------|----------|---------|  
+ *       | 1 | POST | `/api/v1/jwt/algorithm-confusion/login` | Get RS256 JWT |
+ *       | 2 | GET | `/api/v1/.well-known/jwks.json` | Get server's public key |
+ *       | 3 | GET | `/api/v1/jwt/algorithm-confusion/profile` ← you are here | Use token (vuln: trusts alg from header) |
+ *
+ *     security:
+ *       - bearerAuth: []
+ *     responses:
+ *       200:
+ *         description: User profile fetched successfully
+ *       401:
+ *         description: Unauthorized
+ */
+router.get(
+  "/algorithm-confusion/profile",
+  requireAuthJwtButAlgorithmConfusion,
+  profileController.getProfile,
+);
+
 module.exports = router;

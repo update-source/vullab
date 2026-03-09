@@ -17,17 +17,17 @@ const { generateJwkFromPem } = require("../../utils/jwt");
  *       which is normal and expected. However, it becomes exploitable in combination with
  *       vulnerable JWT verification routes:
  *
- *       - **JKU Header Injection** (`GET /api/v1/profile/jwt/jku-header-injection`):
+ *       - **JKU Header Injection** (`GET /api/v1/jwt/jku-header-injection`):
  *         The server fetches JWKS from a URL in the attacker-controlled `jku` header field.
  *         This endpoint serves as the *legitimate* JWKS source — an attacker can host a
  *         malicious copy at an external URL to redirect trust.
  *
- *       - **KID Header Injection** (`GET /api/v1/profile/jwt/kid-header-injection`):
+ *       - **KID Header Injection** (`GET /api/v1/jwt/kid-header-injection`):
  *         The server uses the `kid` value as a **file path** to read the signing key.
  *         This endpoint leaks the `kid` value (`vullab-rs256-key-1`) which an attacker
  *         replaces with a path traversal string (e.g., `../../../../../../dev/null`).
  *
- *       - **Algorithm Confusion** (`GET /api/v1/profile/jwt/algorithm-confusion`):
+ *       - **Algorithm Confusion** (`GET /api/v1/jwt/algorithm-confusion`):
  *         The RSA public key returned here is used as the **HMAC-SHA256 secret** when
  *         forging a token with `alg: "HS256"`. Specifically, the raw DER bytes
  *         (base64url-decoded content of the PEM, without headers/footer) are used as

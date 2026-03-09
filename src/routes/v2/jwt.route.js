@@ -1,8 +1,13 @@
 const express = require("express");
 const router = express.Router();
-const { jwtController } = require("../../controllers/v2");
+const { jwtController, profileController } = require("../../controllers/v2");
 
-const { handleValidation, loginRules } = require("../../middlewares");
+const {
+  handleValidation,
+  loginRules,
+  requireAuthJwtWithHS256Alg,
+  requireAuthJwtWithRS256Alg,
+} = require("../../middlewares");
 
 /**
  * @swagger
@@ -12,7 +17,7 @@ const { handleValidation, loginRules } = require("../../middlewares");
  *     summary: Secure JWT login (fixed unverified signature vulnerability)
  *     description: |
  *       **This is the SECURE version** of the JWT login endpoint.
- *       It correctly signs the token, and the protected route (`GET /api/v2/profile/jwt/unverified-signature`)
+ *       It correctly signs the token, and the protected route (`GET /api/v2/jwt/unverified-signature`)
  *       uses `jwt.verify()` to validate the signature, preventing token tampering.
  *
  *       **Differences from vulnerable v1:**
@@ -30,7 +35,7 @@ const { handleValidation, loginRules } = require("../../middlewares");
  *       | Step | Method | Endpoint | Purpose |
  *       |------|--------|----------|---------|
  *       | 1 | POST | `/api/v2/jwt/unverified-signature/login` ← you are here | Get a valid JWT token |
- *       | 2 | GET | `/api/v2/profile/jwt/unverified-signature` | Use token (secure: signature is verified) |
+ *       | 2 | GET | `/api/v2/jwt/unverified-signature` | Use token (secure: signature is verified) |
  *
  *       **References:**
  *       - https://cheatsheetseries.owasp.org/cheatsheets/JSON_Web_Token_for_Java_Cheat_Sheet.html
@@ -96,7 +101,7 @@ router.post(
  *     summary: Secure JWT login (fixed flawed signature verification)
  *     description: |
  *       **This is the SECURE version** of the JWT login endpoint.
- *       The protected route (`GET /api/v2/profile/jwt/flawed-signature-verification`)
+ *       The protected route (`GET /api/v2/jwt/flawed-signature-verification`)
  *       uses `jwt.verify()` without allowing the `"none"` algorithm.
  *
  *       **Differences from vulnerable v1:**
@@ -108,7 +113,7 @@ router.post(
  *       | Step | Method | Endpoint | Purpose |
  *       |------|--------|----------|---------|
  *       | 1 | POST | `/api/v2/jwt/flawed-signature-verification/login` ← you are here | Get JWT |
- *       | 2 | GET | `/api/v2/profile/jwt/flawed-signature-verification` | Use token (secure: rejects alg "none") |
+ *       | 2 | GET | `/api/v2/jwt/flawed-signature-verification` | Use token (secure: rejects alg "none") |
  *
  *     requestBody:
  *       required: true
@@ -156,7 +161,7 @@ router.post(
  *       | Step | Method | Endpoint | Purpose |
  *       |------|--------|----------|---------|
  *       | 1 | POST | `/api/v2/jwt/weak-signing-key/login` ← you are here | Get JWT (signed with strong key) |
- *       | 2 | GET | `/api/v2/profile/jwt/weak-signing-key` | Use token (secure: key can't be brute-forced) |
+ *       | 2 | GET | `/api/v2/jwt/weak-signing-key` | Use token (secure: key can't be brute-forced) |
  *
  *     requestBody:
  *       required: true
@@ -205,7 +210,7 @@ router.post(
  *       | Step | Method | Endpoint | Purpose |
  *       |------|--------|----------|---------|
  *       | 1 | POST | `/api/v2/jwt/jwk-header-injection/login` ← you are here | Get RS256 JWT |
- *       | 2 | GET | `/api/v2/profile/jwt/jwk-header-injection` | Use token (secure: ignores embedded jwk) |
+ *       | 2 | GET | `/api/v2/jwt/jwk-header-injection` | Use token (secure: ignores embedded jwk) |
  *
  *     requestBody:
  *       required: true
@@ -254,7 +259,7 @@ router.post(
  *       | Step | Method | Endpoint | Purpose |
  *       |------|--------|----------|---------|
  *       | 1 | POST | `/api/v2/jwt/jku-header-injection/login` ← you are here | Get RS256 JWT |
- *       | 2 | GET | `/api/v2/profile/jwt/jku-header-injection` | Use token (secure: ignores jku URL) |
+ *       | 2 | GET | `/api/v2/jwt/jku-header-injection` | Use token (secure: ignores jku URL) |
  *
  *     requestBody:
  *       required: true
@@ -303,7 +308,7 @@ router.post(
  *       | Step | Method | Endpoint | Purpose |
  *       |------|--------|----------|---------|
  *       | 1 | POST | `/api/v2/jwt/kid-header-injection/login` ← you are here | Get HS256 JWT |
- *       | 2 | GET | `/api/v2/profile/jwt/kid-header-injection` | Use token (secure: ignores kid path) |
+ *       | 2 | GET | `/api/v2/jwt/kid-header-injection` | Use token (secure: ignores kid path) |
  *
  *     requestBody:
  *       required: true
@@ -352,7 +357,7 @@ router.post(
  *       | Step | Method | Endpoint | Purpose |
  *       |------|--------|----------|---------|
  *       | 1 | POST | `/api/v2/jwt/algorithm-confusion/login` ← you are here | Get RS256 JWT |
- *       | 2 | GET | `/api/v2/profile/jwt/algorithm-confusion` | Use token (secure: RS256 enforced) |
+ *       | 2 | GET | `/api/v2/jwt/algorithm-confusion` | Use token (secure: RS256 enforced) |
  *
  *     requestBody:
  *       required: true
@@ -379,6 +384,221 @@ router.post(
   loginRules,
   handleValidation,
   jwtController.loginAlgorithmConfusion,
+);
+
+// ═══════════════════════════════════════════════════════════════
+// PROTECTED PROFILE ENDPOINTS (SECURE versions)
+// All use proper signature verification — attack attempts should FAIL.
+// ═══════════════════════════════════════════════════════════════
+
+/**
+ * @swagger
+ * /api/v2/jwt/unverified-signature/profile:
+ *   get:
+ *     tags: [V2 - JWT (Secure)]
+ *     summary: Get profile via JWT with verified signature (secure)
+ *     description: |
+ *       **SECURE:** Uses `jwt.verify()` — forged tokens are rejected.
+ *
+ *       ---
+ *       **🧭 Lab Guide:**
+ *       | Step | Method | Endpoint | Purpose |
+ *       |------|--------|----------|---------|  
+ *       | 1 | POST | `/api/v2/jwt/unverified-signature/login` | Get JWT |
+ *       | 2 | GET | `/api/v2/jwt/unverified-signature/profile` ← you are here | Use token (secure) |
+ *
+ *     security:
+ *       - bearerAuth: []
+ *     responses:
+ *       200:
+ *         description: User profile fetched successfully
+ *       401:
+ *         description: Unauthorized
+ */
+router.get(
+  "/unverified-signature/profile",
+  requireAuthJwtWithHS256Alg,
+  profileController.getProfile,
+);
+
+/**
+ * @swagger
+ * /api/v2/jwt/flawed-signature-verification/profile:
+ *   get:
+ *     tags: [V2 - JWT (Secure)]
+ *     summary: Get profile — alg "none" rejected (secure)
+ *     description: |
+ *       **SECURE:** Strictly enforces `algorithms: ["HS256"]`. Tokens with `alg: "none"` are rejected.
+ *
+ *       ---
+ *       **🧭 Lab Guide:**
+ *       | Step | Method | Endpoint | Purpose |
+ *       |------|--------|----------|---------|  
+ *       | 1 | POST | `/api/v2/jwt/flawed-signature-verification/login` | Get JWT |
+ *       | 2 | GET | `/api/v2/jwt/flawed-signature-verification/profile` ← you are here | Use token (secure) |
+ *
+ *     security:
+ *       - bearerAuth: []
+ *     responses:
+ *       200:
+ *         description: User profile fetched successfully
+ *       401:
+ *         description: Unauthorized
+ */
+router.get(
+  "/flawed-signature-verification/profile",
+  requireAuthJwtWithHS256Alg,
+  profileController.getProfile,
+);
+
+/**
+ * @swagger
+ * /api/v2/jwt/weak-signing-key/profile:
+ *   get:
+ *     tags: [V2 - JWT (Secure)]
+ *     summary: Get profile — strong signing key (secure)
+ *     description: |
+ *       **SECURE:** Token verified with strong secret — brute-force infeasible.
+ *
+ *       ---
+ *       **🧭 Lab Guide:**
+ *       | Step | Method | Endpoint | Purpose |
+ *       |------|--------|----------|---------|  
+ *       | 1 | POST | `/api/v2/jwt/weak-signing-key/login` | Get JWT |
+ *       | 2 | GET | `/api/v2/jwt/weak-signing-key/profile` ← you are here | Use token (secure) |
+ *
+ *     security:
+ *       - bearerAuth: []
+ *     responses:
+ *       200:
+ *         description: User profile fetched successfully
+ *       401:
+ *         description: Unauthorized
+ */
+router.get(
+  "/weak-signing-key/profile",
+  requireAuthJwtWithHS256Alg,
+  profileController.getProfile,
+);
+
+/**
+ * @swagger
+ * /api/v2/jwt/jwk-header-injection/profile:
+ *   get:
+ *     tags: [V2 - JWT (Secure)]
+ *     summary: Get profile — JWK injection blocked (secure)
+ *     description: |
+ *       **SECURE:** Ignores `jwk` in header, uses server's RS256 public key.
+ *
+ *       ---
+ *       **🧭 Lab Guide:**
+ *       | Step | Method | Endpoint | Purpose |
+ *       |------|--------|----------|---------|  
+ *       | 1 | POST | `/api/v2/jwt/jwk-header-injection/login` | Get RS256 JWT |
+ *       | 2 | GET | `/api/v2/jwt/jwk-header-injection/profile` ← you are here | Use token (secure) |
+ *
+ *     security:
+ *       - bearerAuth: []
+ *     responses:
+ *       200:
+ *         description: User profile fetched successfully
+ *       401:
+ *         description: Unauthorized
+ */
+router.get(
+  "/jwk-header-injection/profile",
+  requireAuthJwtWithRS256Alg,
+  profileController.getProfile,
+);
+
+/**
+ * @swagger
+ * /api/v2/jwt/jku-header-injection/profile:
+ *   get:
+ *     tags: [V2 - JWT (Secure)]
+ *     summary: Get profile — JKU injection blocked (secure)
+ *     description: |
+ *       **SECURE:** Ignores `jku` URL in header, no outbound fetch.
+ *
+ *       ---
+ *       **🧭 Lab Guide:**
+ *       | Step | Method | Endpoint | Purpose |
+ *       |------|--------|----------|---------|  
+ *       | 1 | POST | `/api/v2/jwt/jku-header-injection/login` | Get RS256 JWT |
+ *       | 2 | GET | `/api/v2/jwt/jku-header-injection/profile` ← you are here | Use token (secure) |
+ *
+ *     security:
+ *       - bearerAuth: []
+ *     responses:
+ *       200:
+ *         description: User profile fetched successfully
+ *       401:
+ *         description: Unauthorized
+ */
+router.get(
+  "/jku-header-injection/profile",
+  requireAuthJwtWithRS256Alg,
+  profileController.getProfile,
+);
+
+/**
+ * @swagger
+ * /api/v2/jwt/kid-header-injection/profile:
+ *   get:
+ *     tags: [V2 - JWT (Secure)]
+ *     summary: Get profile — KID path traversal blocked (secure)
+ *     description: |
+ *       **SECURE:** Ignores `kid` in header, no filesystem access.
+ *
+ *       ---
+ *       **🧭 Lab Guide:**
+ *       | Step | Method | Endpoint | Purpose |
+ *       |------|--------|----------|---------|  
+ *       | 1 | POST | `/api/v2/jwt/kid-header-injection/login` | Get HS256 JWT |
+ *       | 2 | GET | `/api/v2/jwt/kid-header-injection/profile` ← you are here | Use token (secure) |
+ *
+ *     security:
+ *       - bearerAuth: []
+ *     responses:
+ *       200:
+ *         description: User profile fetched successfully
+ *       401:
+ *         description: Unauthorized
+ */
+router.get(
+  "/kid-header-injection/profile",
+  requireAuthJwtWithHS256Alg,
+  profileController.getProfile,
+);
+
+/**
+ * @swagger
+ * /api/v2/jwt/algorithm-confusion/profile:
+ *   get:
+ *     tags: [V2 - JWT (Secure)]
+ *     summary: Get profile — algorithm confusion blocked (secure)
+ *     description: |
+ *       **SECURE:** Verification pinned to RS256, HS256 confusion rejected.
+ *
+ *       ---
+ *       **🧭 Lab Guide:**
+ *       | Step | Method | Endpoint | Purpose |
+ *       |------|--------|----------|---------|  
+ *       | 1 | POST | `/api/v2/jwt/algorithm-confusion/login` | Get RS256 JWT |
+ *       | 2 | GET | `/api/v2/jwt/algorithm-confusion/profile` ← you are here | Use token (secure) |
+ *
+ *     security:
+ *       - bearerAuth: []
+ *     responses:
+ *       200:
+ *         description: User profile fetched successfully
+ *       401:
+ *         description: Unauthorized
+ */
+router.get(
+  "/algorithm-confusion/profile",
+  requireAuthJwtWithHS256Alg,
+  profileController.getProfile,
 );
 
 module.exports = router;

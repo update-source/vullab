@@ -25,7 +25,7 @@ const authController = {
       req.session.stage = "logged_in";
       await req.session.save();
 
-      return res.redirect(302, "/api/v2/profile");
+      return res.redirect(302, "/api/v2/auth/profile");
     } catch (error) {
       next(error);
     }
@@ -41,7 +41,7 @@ const authController = {
       req.session.stage = "logged_in";
       await req.session.save();
 
-      return res.redirect(302, "/api/v2/profile");
+      return res.redirect(302, "/api/v2/auth/profile");
     } catch (error) {
       next(error);
     }
@@ -57,7 +57,7 @@ const authController = {
       req.session.stage = "logged_in";
       await req.session.save();
 
-      return res.redirect(302, "/api/v2/profile");
+      return res.redirect(302, "/api/v2/auth/profile");
     } catch (error) {
       next(error);
     }
@@ -77,7 +77,7 @@ const authController = {
       req.session.stage = "logged_in";
       await req.session.save();
 
-      return res.redirect(302, "/api/v2/profile");
+      return res.redirect(302, "/api/v2/auth/profile");
     } catch (error) {
       next(error);
     }
@@ -93,7 +93,7 @@ const authController = {
       req.session.stage = "logged_in";
       await req.session.save();
 
-      return res.redirect(302, "/api/v2/profile");
+      return res.redirect(302, "/api/v2/auth/profile");
     } catch (error) {
       next(error);
     }
@@ -113,7 +113,7 @@ const authController = {
       req.session.stage = "logged_in";
       await req.session.save();
 
-      return res.redirect(302, "/api/v2/profile");
+      return res.redirect(302, "/api/v2/auth/profile");
     } catch (error) {
       next(error);
     }
@@ -132,7 +132,7 @@ const authController = {
       req.session.stage = "logged_in";
       await req.session.save();
 
-      return res.redirect(302, "/api/v2/profile");
+      return res.redirect(302, "/api/v2/auth/profile");
     } catch (error) {
       next(error);
     }
@@ -178,7 +178,7 @@ const authController = {
       req.session.stage = "logged_in";
       await req.session.save();
 
-      return res.redirect(302, "/api/v2/profile/cookie");
+      return res.redirect(302, "/api/v2/auth/stay-logged-in/profile");
     } catch (error) {
       next(error);
     }
@@ -193,7 +193,7 @@ const authController = {
       req.session.userId = user.id;
       req.session.stage = "logged_in";
       await req.session.save();
-      return res.redirect(302, "/api/v1/profile");
+      return res.redirect(302, "/api/v2/auth/profile");
     } catch (error) {
       next(error);
     }
@@ -327,7 +327,7 @@ const authController = {
       req.session.stage = "logged_in";
       await req.session.save();
 
-      return res.redirect(302, "/api/v2/profile");
+      return res.redirect(302, "/api/v2/auth/profile");
     } catch (error) {
       next(error);
     }
@@ -361,7 +361,7 @@ const authController = {
       req.session.stage = "logged_in";
       await req.session.save();
 
-      return res.redirect(302, "/api/v2/profile");
+      return res.redirect(302, "/api/v2/auth/profile");
     } catch (error) {
       next(error);
     }

@@ -16,7 +16,7 @@ const authController = {
       req.session.stage = "logged_in";
       await req.session.save();
 
-      return res.redirect(302, "/api/v1/profile");
+      return res.redirect(302, "/api/v1/auth/profile");
     } catch (error) {
       next(error);
     }
@@ -32,7 +32,7 @@ const authController = {
       req.session.stage = "logged_in";
       await req.session.save();
 
-      return res.redirect(302, "/api/v1/profile");
+      return res.redirect(302, "/api/v1/auth/profile");
     } catch (error) {
       next(error);
     }
@@ -48,7 +48,7 @@ const authController = {
       req.session.stage = "logged_in";
       await req.session.save();
 
-      return res.redirect(302, "/api/v1/profile");
+      return res.redirect(302, "/api/v1/auth/profile");
     } catch (error) {
       next(error);
     }
@@ -68,7 +68,7 @@ const authController = {
       req.session.stage = "logged_in";
       await req.session.save();
 
-      return res.redirect(302, "/api/v1/profile");
+      return res.redirect(302, "/api/v1/auth/profile");
     } catch (error) {
       next(error);
     }
@@ -84,7 +84,7 @@ const authController = {
       req.session.stage = "logged_in";
       await req.session.save();
 
-      return res.redirect(302, "/api/v1/profile");
+      return res.redirect(302, "/api/v1/auth/profile");
     } catch (error) {
       next(error);
     }
@@ -104,7 +104,7 @@ const authController = {
       req.session.stage = "logged_in";
       await req.session.save();
 
-      return res.redirect(302, "/api/v1/profile");
+      return res.redirect(302, "/api/v1/auth/profile");
     } catch (error) {
       next(error);
     }
@@ -139,7 +139,7 @@ const authController = {
       req.session.stage = "logged_in";
       await req.session.save();
 
-      return res.redirect(302, "/api/v1/profile/cookie");
+      return res.redirect(302, "/api/v1/auth/stay-logged-in/profile");
     } catch (error) {
       next(error);
     }
@@ -156,7 +156,7 @@ const authController = {
       req.session.currentPasswordAttempt = 0;
       await req.session.save();
 
-      return res.redirect(302, "/api/v1/profile");
+      return res.redirect(302, "/api/v1/auth/profile");
     } catch (error) {
       next(error);
     }
@@ -243,7 +243,7 @@ const authController = {
       req.session.stage = "logged_in"; //vul
       await req.session.save();
 
-      return res.redirect(302, "/api/v1/profile"); // also instend of redirect user to the checking page it redirect user to profile
+      return res.redirect(302, "/api/v1/auth/2FA/profile"); // vuln: redirect to profile directly, skipping OTP page
     } catch (error) {
       next(error);
     }
@@ -259,7 +259,7 @@ const authController = {
       req.session.stage = "pending";
       await req.session.save();
 
-      return res.redirect(302, "/api/v1/profile");
+      return res.redirect(302, "/api/v1/auth/2FA/profile");
     } catch (error) {
       next(error);
     }
@@ -315,7 +315,7 @@ const authController = {
       req.session.stage = "logged_in";
       await req.session.save();
 
-      return res.redirect(302, "/api/v1/profile");
+      return res.redirect(302, "/api/v1/auth/profile");
     } catch (error) {
       next(error);
     }
@@ -335,7 +335,7 @@ const authController = {
       req.session.stage = "logged_in";
       await req.session.save();
 
-      return res.redirect(302, "/api/v1/profile");
+      return res.redirect(302, "/api/v1/auth/profile");
     } catch (error) {
       next(error);
     }

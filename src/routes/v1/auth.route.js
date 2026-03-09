@@ -1,6 +1,6 @@
 const express = require("express");
 const router = express.Router();
-const { authController } = require("../../controllers/v1");
+const { authController, profileController } = require("../../controllers/v1");
 const {
   changePasswordRules,
   generateForgotPasswordTokenRules,
@@ -8,7 +8,10 @@ const {
   loginRules,
   otpRules,
   requireAuthSession,
+  requireAuthSessionIgnoreStage,
+  requireAuthSessionOrCookie,
   requirePendingOtpSession,
+  resolveCookieByBase64,
   resetPasswordBrokenLogicRules,
   resetSecurePasswordBrokenLogicRules,
 } = require("../../middlewares");
@@ -1050,5 +1053,108 @@ router.post(
  *         description: Logged out successfully
  */
 router.post("/logout", authController.logout);
+
+// ═══════════════════════════════════════════════════════════════
+// PROTECTED PROFILE ENDPOINTS
+// These are the resource endpoints that auth labs redirect to after login.
+// ═══════════════════════════════════════════════════════════════
+
+/**
+ * @swagger
+ * /api/v1/auth/profile:
+ *   get:
+ *     tags: [V1 - Authentication (Vulnerable)]
+ *     summary: Get user profile (requires logged_in session stage)
+ *     description: |
+ *       Standard session-protected profile endpoint.
+ *       Used after any auth lab login to verify the user is authenticated.
+ *
+ *       ---
+ *       **🧭 Lab Guide:** Call any auth login endpoint first, then access this.
+ *
+ *     security:
+ *       - cookieAuth: []
+ *     responses:
+ *       200:
+ *         description: User profile data
+ *       401:
+ *         description: Unauthorized
+ */
+router.get("/profile", requireAuthSession, profileController.getProfile);
+
+/**
+ * @swagger
+ * /api/v1/auth/2FA/profile:
+ *   get:
+ *     tags: [V1 - Authentication (Vulnerable)]
+ *     summary: Get profile ignoring session stage (2FA bypass vulnerable)
+ *     description: |
+ *       **VULNERABLE endpoint.** This profile check ignores the session `stage` field.
+ *       After 2FA login sets `stage: "pending"`, this endpoint still grants access
+ *       because it only checks `session.userId` without verifying `stage === "logged_in"`.
+ *
+ *       **Root cause:** `requireAuthSessionIgnoreStage` middleware does not check
+ *       `session.stage`, so a user who has completed step 1 (password) but NOT step 2
+ *       (OTP) can directly access the profile.
+ *
+ *       ---
+ *       **🧭 Lab Guide — API call order:**
+ *       | Step | Method | Endpoint | Purpose |
+ *       |------|--------|----------|---------|  
+ *       | 1 | POST | `/api/v1/auth/2FA/simple-bypass` | Login (password only, OTP pending) |
+ *       | 2 | GET | `/api/v1/auth/2FA/profile` ← you are here | Access profile (vuln: skips OTP check) |
+ *
+ *     security:
+ *       - cookieAuth: []
+ *     responses:
+ *       200:
+ *         description: User profile data (even without completing 2FA)
+ *       401:
+ *         description: Unauthorized
+ */
+router.get(
+  "/2FA/profile",
+  requireAuthSessionIgnoreStage,
+  profileController.getProfile,
+);
+
+/**
+ * @swagger
+ * /api/v1/auth/stay-logged-in/profile:
+ *   get:
+ *     tags: [V1 - Authentication (Vulnerable)]
+ *     summary: Get profile via session or stay-logged-in cookie (vulnerable)
+ *     description: |
+ *       **VULNERABLE endpoint.** Accepts authentication via either session or
+ *       `stay-logged-in` cookie. The cookie contains `base64(username:md5password)`,
+ *       which is vulnerable to offline brute-force.
+ *
+ *       ---
+ *       **🧭 Lab Guide — API call order:**
+ *       | Step | Method | Endpoint | Purpose |
+ *       |------|--------|----------|---------|  
+ *       | 1 | POST | `/api/v1/auth/stay-logged-in/brute-force` | Login with remember-me |
+ *       | 2 | GET | `/api/v1/auth/stay-logged-in/profile` ← you are here | Use cookie (vuln: base64+md5) |
+ *
+ *     security:
+ *       - cookieAuth: []
+ *     parameters:
+ *       - in: cookie
+ *         name: stay-logged-in
+ *         schema:
+ *           type: string
+ *         description: Base64 encoded string containing username + MD5 password hash
+ *     responses:
+ *       200:
+ *         description: User profile data retrieved successfully
+ *       401:
+ *         description: Unauthorized
+ */
+router.get(
+  "/stay-logged-in/profile",
+  requireAuthSessionOrCookie,
+  resolveCookieByBase64,
+  profileController.getProfile,
+);
 
 module.exports = router;
