@@ -24,8 +24,7 @@ const accessTokenOptions = {
   expiresIn: JWT_ACCESS_EXPIRES_IN,
   issuer: JWT_ISSUER,
   audience: JWT_AUDIENCE,
-  algorithm: "HS256",
-  keyid: JWT_KID,
+  algorithm: "HS256"
 };
 
 const refreshTokenOptions = {

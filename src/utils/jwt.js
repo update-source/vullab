@@ -176,7 +176,7 @@ const verifyAccessTokenViaJku = async (token) => {
       issuer: accessTokenOptions.issuer,
       audience: accessTokenOptions.audience,
       algorithms: ["RS256"],
-      keyid: accessTokenOptions.keyid,
+      keyid: "vullab-rs256-key-1",
     });
   } catch (error) {
     return null;
@@ -234,17 +234,15 @@ const verifyAccessTokenViaAlg = async (token) => {
         const dataToSign = `${header}.${payload}`;
 
         /*
-        Extract raw DER bytes from PEM (strip header/footer, base64-decode).
-        This matches how Burp Suite JWT Editor and jwt.io treat the key when
-        performing algorithm confusion — they use the raw public key bytes,
-        NOT the full PEM string (which includes "-----BEGIN PUBLIC KEY-----",
-        newlines, and "-----END PUBLIC KEY-----").
+        Use raw DER bytes as the HMAC key.
+        Strip PEM headers/footer and base64-decode to get the raw binary key.
+        This matches Burp Suite JWT Editor "Copy Public Key as Symmetric Key".
         */
-        const pemContent = pem
+        const pemBody = pem
           .replace("-----BEGIN PUBLIC KEY-----", "")
           .replace("-----END PUBLIC KEY-----", "")
-          .replace(/\n/g, "");
-        const keyBytes = Buffer.from(pemContent, "base64");
+          .replace(/\s+/g, "");
+        const keyBytes = Buffer.from(pemBody, "base64");
 
         const expectedSignature = crypto
           .createHmac("sha256", keyBytes)
@@ -260,7 +258,7 @@ const verifyAccessTokenViaAlg = async (token) => {
         issuer: accessTokenOptions.issuer,
         audience: accessTokenOptions.audience,
         algorithms: ["RS256"],
-        keyid: accessTokenOptions.keyid,
+        keyid: "vullab-rs256-key-1",
       });
     }
   } catch (error) {

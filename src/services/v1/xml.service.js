@@ -7,19 +7,32 @@ const productService = require("./product.service");
 <stockCheck><productId>1</productId><storeId>1</storeId></stockCheck>
 */
 
-const XMLParseVulnarebleOptions = {
-  nonet: false,
-  replaceEntities: true,
-  validateEntities: true,
-};
-
 const xmlService = {
   async exploitingXXEUsingExternalEntitiesToRetrieveFile(data) {
-    const parseData = libxmljs.parseXml(data, XMLParseVulnarebleOptions);
+    const parseData = libxmljs.parseXml(data, {
+      replaceEntities: true,
+      nonet: true,
+    });
     const productId = parseData.get("//productId")?.text();
-    const id = parseInt(productId, 10); // if productId is not a string number it will return NAN
+    const id = parseInt(productId, 10);
     return {
-      productId: productId,
+      "product-id": productId,
+      stock: !isNaN(id) ? await productService.getItemStock(id) : 0,
+    };
+  },
+
+  //Cannot exploit ssrf because http in libxmljs is disabled by default
+  //https://github.com/libxmljs/libxmljs/blob/e473f7bf/vendor/libxml2.config/libxml/xmlversion.h#L186-L188
+  async exploitingXXEToPerformSSRFAttacks(data) {
+    const parseData = libxmljs.parseXml(data, {
+      dtdload: true,
+      replaceEntities: true,
+      nonet: false,
+    });
+    const productId = parseData.get("//productId")?.text();
+    const id = parseInt(productId, 10);
+    return {
+      "product-id": productId,
       stock: !isNaN(id) ? await productService.getItemStock(id) : 0,
     };
   },

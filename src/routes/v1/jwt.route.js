@@ -5,13 +5,13 @@ const { jwtController, profileController } = require("../../controllers/v1");
 const {
   handleValidation,
   loginRules,
-  requireAuthJwtButUnverifiedSignature,
-  requireAuthJwtButFlawedSignatureVerification,
-  requireAuthJwtButWeakSigningKey,
-  requireAuthJwtButJwkHeaderInjection,
-  requireAuthJwtButJkuHeaderInjection,
-  requireAuthJwtButKidHeaderInjection,
   requireAuthJwtButAlgorithmConfusion,
+  requireAuthJwtButFlawedSignatureVerification,
+  requireAuthJwtButJkuHeaderInjection,
+  requireAuthJwtButJwkHeaderInjection,
+  requireAuthJwtButKidHeaderInjection,
+  requireAuthJwtButUnverifiedSignature,
+  requireAuthJwtButWeakSigningKey,
 } = require("../../middlewares");
 
 /**
@@ -631,7 +631,7 @@ router.post(
  *       ---
  *       **🧭 Lab Guide — API call order:**
  *       | Step | Method | Endpoint | Purpose |
- *       |------|--------|----------|---------|  
+ *       |------|--------|----------|---------|
  *       | 1 | POST | `/api/v1/jwt/unverified-signature/login` | Get a valid JWT token |
  *       | 2 | GET | `/api/v1/jwt/unverified-signature/profile` ← you are here | Use token (vuln: signature not verified) |
  *
@@ -663,7 +663,7 @@ router.get(
  *       ---
  *       **🧭 Lab Guide — API call order:**
  *       | Step | Method | Endpoint | Purpose |
- *       |------|--------|----------|---------|  
+ *       |------|--------|----------|---------|
  *       | 1 | POST | `/api/v1/jwt/flawed-signature-verification/login` | Get JWT |
  *       | 2 | GET | `/api/v1/jwt/flawed-signature-verification/profile` ← you are here | Use token (vuln: accepts alg "none") |
  *
@@ -693,7 +693,7 @@ router.get(
  *       ---
  *       **🧭 Lab Guide — API call order:**
  *       | Step | Method | Endpoint | Purpose |
- *       |------|--------|----------|---------|  
+ *       |------|--------|----------|---------|
  *       | 1 | POST | `/api/v1/jwt/weak-signing-key/login` | Get JWT (signed with weak key) |
  *       | 2 | GET | `/api/v1/jwt/weak-signing-key/profile` ← you are here | Use token (vuln: key is brute-forceable) |
  *
@@ -724,7 +724,7 @@ router.get(
  *       ---
  *       **🧭 Lab Guide — API call order:**
  *       | Step | Method | Endpoint | Purpose |
- *       |------|--------|----------|---------|  
+ *       |------|--------|----------|---------|
  *       | 1 | POST | `/api/v1/jwt/jwk-header-injection/login` | Get RS256 JWT |
  *       | 2 | GET | `/api/v1/jwt/jwk-header-injection/profile` ← you are here | Use token (vuln: trusts embedded jwk) |
  *
@@ -755,7 +755,7 @@ router.get(
  *       ---
  *       **🧭 Lab Guide — API call order:**
  *       | Step | Method | Endpoint | Purpose |
- *       |------|--------|----------|---------|  
+ *       |------|--------|----------|---------|
  *       | 1 | POST | `/api/v1/jwt/jku-header-injection/login` | Get RS256 JWT |
  *       | 2 | GET | `/api/v1/.well-known/jwks.json` | (Optional) Observe server's JWKS |
  *       | 3 | GET | `/api/v1/jwt/jku-header-injection/profile` ← you are here | Use token (vuln: fetches untrusted jku) |
@@ -787,7 +787,7 @@ router.get(
  *       ---
  *       **🧭 Lab Guide — API call order:**
  *       | Step | Method | Endpoint | Purpose |
- *       |------|--------|----------|---------|  
+ *       |------|--------|----------|---------|
  *       | 1 | POST | `/api/v1/jwt/kid-header-injection/login` | Get HS256 JWT with kid field |
  *       | 2 | GET | `/api/v1/jwt/kid-header-injection/profile` ← you are here | Use token (vuln: kid path traversal) |
  *
@@ -818,7 +818,7 @@ router.get(
  *       ---
  *       **🧭 Lab Guide — API call order:**
  *       | Step | Method | Endpoint | Purpose |
- *       |------|--------|----------|---------|  
+ *       |------|--------|----------|---------|
  *       | 1 | POST | `/api/v1/jwt/algorithm-confusion/login` | Get RS256 JWT |
  *       | 2 | GET | `/api/v1/.well-known/jwks.json` | Get server's public key |
  *       | 3 | GET | `/api/v1/jwt/algorithm-confusion/profile` ← you are here | Use token (vuln: trusts alg from header) |

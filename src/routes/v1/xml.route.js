@@ -5,9 +5,14 @@ const { xmlController } = require("../../controllers/v1");
 const { handleValidation } = require("../../middlewares");
 
 router.post(
-  "/external-entities-to-retrieve-file",
+  "/retrieve-file/check-stock",
   handleValidation,
   xmlController.exploitingXXEUsingExternalEntitiesToRetrieveFile,
 );
 
+router.post(
+  "/perform-SSRF-attacks/check-stock",
+  handleValidation,
+  xmlController.exploitingXXEToPerformSSRFAttacks,
+)
 module.exports = router;
